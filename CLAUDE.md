@@ -71,9 +71,11 @@
      получают только первые N устройств подписки по `client_hwids.first_seen`,
      запрос без HWID его не получает. Исчерпанный трафик — подключение остаётся
      в списке, но выключено на ноде.
-   - Happ и Incy не получают `Subscription-Userinfo`; вместо него баннер «Лимиты»
-     (`ConnectionLimitsBanner`): Happ — заголовок `Announce`, Incy — `Banner-Text`,
-     оба base64 с переносами строк.
+   - Happ не получает `Subscription-Userinfo`, Incy получает `Subscription-Userinfo: 0`
+     (без заголовка Incy показывает старый трафик из кэша). Лимиты обоим идут в
+     объявлении `Announce` (base64, до 200 символов, `ConnectionLimitsBanner` +
+     `clampRunes`). Incy дополнительно получает `Banner-Text`, но показывает его
+     только провайдерам с Incy Premium.
    - Список клиентов отдаёт `connectionLimits` (только подключения с лимитами);
      в таблице колонка трафика — `ClientConnectionTraffic`: свёрнуто показывает
      подключение с наименьшим остатком, развёрнуто — все.

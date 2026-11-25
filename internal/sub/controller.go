@@ -964,8 +964,11 @@ func (a *SUBController) ApplyCommonHeaders(
 		if a.subService != nil {
 			limitsBanner = a.subService.ForDevice("").ConnectionLimitsBanner(c.Param("subid"))
 		}
-		if IsHappClient(userAgent) && limitsBanner != "" {
-			profileAnnounce = strings.TrimSpace(limitsBanner + "\n\n" + profileAnnounce)
+		if limitsBanner != "" {
+			profileAnnounce = clampRunes(strings.TrimSpace(limitsBanner+"\n\n"+profileAnnounce), connectionLimitsAnnounceMax)
+		}
+		if IsIncyClient(userAgent) {
+			c.Writer.Header().Set("Subscription-Userinfo", "0")
 		}
 	} else {
 		c.Writer.Header().Set("Subscription-Userinfo", header)

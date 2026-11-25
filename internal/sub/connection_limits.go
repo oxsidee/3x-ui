@@ -2,6 +2,8 @@ package sub
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -75,8 +77,11 @@ func (s *SubService) connectionHidden(inbound *model.Inbound, email, subId strin
 	return false
 }
 
+const connectionLimitsAnnounceMax = 200
+
 func formatGiB(bytes int64) string {
-	return fmt.Sprintf("%.2f ГБ", float64(bytes)/float64(1<<30))
+	gib := math.Round(float64(bytes)/float64(1<<30)*100) / 100
+	return strconv.FormatFloat(gib, 'f', -1, 64)
 }
 
 func (s *SubService) ConnectionLimitsBanner(subId string) string {
@@ -84,33 +89,35 @@ func (s *SubService) ConnectionLimitsBanner(subId string) string {
 	var lines []string
 	for _, c := range s.connectionsFor(subId) {
 		link := c.link()
-		if !link.HasLimits() {
-			continue
-		}
 		var parts []string
-		used := c.Up + c.Down
 		if c.TotalGB > 0 {
+			used := c.Up + c.Down
 			left := max(c.TotalGB-used, 0)
-			parts = append(parts, fmt.Sprintf("использовано: %s из %s, осталось: %s", formatGiB(used), formatGiB(c.TotalGB), formatGiB(left)))
+			parts = append(parts, fmt.Sprintf("использовано %s/%s ГБ, осталось %s ГБ", formatGiB(used), formatGiB(c.TotalGB), formatGiB(left)))
 		}
 		switch {
 		case c.ExpiryTime < 0:
-			parts = append(parts, fmt.Sprintf("срок: %d дн. с первого подключения", -c.ExpiryTime/86400000))
+			parts = append(parts, fmt.Sprintf("%d дн. с первого подключения", -c.ExpiryTime/86400000))
 		case link.Expired(now.UnixMilli()):
 			parts = append(parts, "срок истёк")
 		case c.ExpiryTime > 0:
 			parts = append(parts, "до "+time.UnixMilli(c.ExpiryTime).In(time.Local).Format("02.01.2006"))
 		}
-		if c.LimitHwid > 0 {
-			parts = append(parts, fmt.Sprintf("устройств: %d", c.LimitHwid))
+		if len(parts) == 0 {
+			continue
 		}
-		if c.LimitIP > 0 {
-			parts = append(parts, fmt.Sprintf("IP: %d", c.LimitIP))
-		}
-		lines = append(lines, c.Remark+" — "+strings.Join(parts, ", "))
+		lines = append(lines, c.Remark+": "+strings.Join(parts, ", "))
 	}
 	if len(lines) == 0 {
 		return ""
 	}
-	return "Лимиты\n" + strings.Join(lines, "\n")
+	return clampRunes("Лимиты\n"+strings.Join(lines, "\n"), connectionLimitsAnnounceMax)
+}
+
+func clampRunes(text string, limit int) string {
+	runes := []rune(text)
+	if len(runes) <= limit {
+		return text
+	}
+	return string(runes[:limit-1]) + "…"
 }

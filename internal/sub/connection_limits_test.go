@@ -102,10 +102,25 @@ func TestConnectionLimitsBanner(t *testing.T) {
 
 	got := NewSubService("").ForDevice("").ConnectionLimitsBanner("s1")
 	want := "Лимиты\n" +
-		"bs — использовано: 6.00 ГБ из 10.00 ГБ, осталось: 4.00 ГБ, до 05.12.2030, устройств: 2\n" +
-		"nl — срок: 10 дн. с первого подключения"
+		"bs: использовано 6/10 ГБ, осталось 4 ГБ, до 05.12.2030\n" +
+		"nl: 10 дн. с первого подключения"
 	if got != want {
 		t.Fatalf("banner =\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestConnectionLimitsBannerFitsAnnounce(t *testing.T) {
+	bs, nl := seedConnectionLimitSub(t)
+	long := strings.Repeat("Нидерланды ", 12)
+	for _, id := range []int{bs.Id, nl.Id} {
+		if err := database.GetDB().Model(&model.Inbound{}).Where("id = ?", id).Update("remark", long).Error; err != nil {
+			t.Fatal(err)
+		}
+		setConnLimit(t, id, map[string]any{"total_gb": 10 << 30, "up": 1 << 29})
+	}
+	got := []rune(NewSubService("").ForDevice("").ConnectionLimitsBanner("s1"))
+	if len(got) != connectionLimitsAnnounceMax || got[len(got)-1] != '…' {
+		t.Fatalf("banner has %d runes, want %d ending with an ellipsis", len(got), connectionLimitsAnnounceMax)
 	}
 }
 
@@ -135,13 +150,16 @@ func TestSubHeadersShowLimitsToHappAndIncy(t *testing.T) {
 	if happ.Get("Subscription-Userinfo") != "" {
 		t.Fatalf("Happ must not get the total traffic header: %q", happ.Get("Subscription-Userinfo"))
 	}
-	if text := decode(happ.Get("Announce")); !strings.HasPrefix(text, "Лимиты\nbs — использовано: 0.00 ГБ из 10.00 ГБ") {
+	if text := decode(happ.Get("Announce")); text != "Лимиты\nbs: использовано 0/10 ГБ, осталось 10 ГБ" {
 		t.Fatalf("Happ announce = %q", text)
 	}
 
-	incy := get("INCY/1.2")
-	if incy.Get("Subscription-Userinfo") != "" {
-		t.Fatalf("Incy must not get the total traffic header")
+	incy := get("INCY/3.9.9/android Dalvik/2.1.0")
+	if got := incy.Get("Subscription-Userinfo"); got != "0" {
+		t.Fatalf("Incy hides its traffic block only on userinfo 0, got %q", got)
+	}
+	if text := decode(incy.Get("Announce")); !strings.HasPrefix(text, "Лимиты\n") {
+		t.Fatalf("Incy announce = %q", text)
 	}
 	if text := decode(incy.Get("Banner-Text")); !strings.HasPrefix(text, "Лимиты\n") {
 		t.Fatalf("Incy banner = %q", text)
