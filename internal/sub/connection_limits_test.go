@@ -2,6 +2,7 @@ package sub
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -168,5 +169,27 @@ func TestSubHeadersShowLimitsToHappAndIncy(t *testing.T) {
 	other := get("v2rayN/7.0")
 	if other.Get("Subscription-Userinfo") == "" || other.Get("Announce") != "" {
 		t.Fatalf("other clients keep the usual headers: userinfo=%q announce=%q", other.Get("Subscription-Userinfo"), other.Get("Announce"))
+	}
+}
+
+func TestSubInfoCarriesConnectionLimits(t *testing.T) {
+	bs, _ := seedConnectionLimitSub(t)
+	expiry := time.Now().Add(48 * time.Hour).UnixMilli()
+	setConnLimit(t, bs.Id, map[string]any{"total_gb": 10 << 30, "up": 1 << 30, "down": 1 << 30, "expiry_time": expiry, "limit_hwid": 2})
+	router := newSubscriptionTestRouter(subscriptionTestRouterConfig{})
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, httptest.NewRequest(http.MethodGet, "http://sub.example.com/sub/s1?format=info", nil))
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status %d %s", resp.Code, resp.Body.String())
+	}
+	var info struct {
+		ConnectionLimits []SubPageConnection `json:"connectionLimits"`
+	}
+	if err := json.Unmarshal(resp.Body.Bytes(), &info); err != nil {
+		t.Fatal(err)
+	}
+	want := []SubPageConnection{{Remark: "bs", TotalByte: 10 << 30, UsedByte: 2 << 30, ExpiryTime: expiry, LimitHwid: 2}}
+	if !slices.Equal(info.ConnectionLimits, want) {
+		t.Fatalf("connectionLimits = %+v, want %+v", info.ConnectionLimits, want)
 	}
 }

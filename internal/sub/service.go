@@ -3281,6 +3281,7 @@ type PageData struct {
 	SubAnnounce   string
 	Result        []string
 	Emails        []string
+	Connections   []SubPageConnection
 }
 
 // ResolveRequest extracts scheme, host, and header information from an HTTP request.

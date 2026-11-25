@@ -454,6 +454,7 @@ func (a *SUBController) buildSubPageData(c *gin.Context) (PageData, bool) {
 	metadata := a.metadataForSubRequest(func() *SubService { return subReq }, subId, "")
 	page := subReq.BuildPageData(subId, hostHeader, traffic, lastOnline, subs, emails, subURL, subJsonURL, subClashURL, basePathStr, metadata.Title, metadata.SupportURL)
 	page.SubAnnounce = metadata.Announce
+	page.Connections = subReq.ConnectionLimitsView(subId)
 	return page, true
 }
 
@@ -687,29 +688,30 @@ func (a *SUBController) subPageContext(page PageData) map[string]any {
 	updateHours, _ := strconv.Atoi(subUpdates)
 
 	return map[string]any{
-		"sId":           page.SId,
-		"enabled":       page.Enabled,
-		"isOnline":      page.IsOnline,
-		"download":      page.Download,
-		"upload":        page.Upload,
-		"total":         page.Total,
-		"used":          page.Used,
-		"remained":      page.Remained,
-		"expire":        page.Expire,
-		"lastOnline":    page.LastOnline,
-		"downloadByte":  page.DownloadByte,
-		"uploadByte":    page.UploadByte,
-		"totalByte":     page.TotalByte,
-		"subUrl":        page.SubUrl,
-		"subJsonUrl":    page.SubJsonUrl,
-		"subClashUrl":   page.SubClashUrl,
-		"subTitle":      page.SubTitle,
-		"subSupportUrl": page.SubSupportUrl,
-		"subUpdates":    updateHours,
-		"links":         page.Result,
-		"emails":        page.Emails,
-		"datepicker":    datepicker,
-		"announce":      page.SubAnnounce,
+		"sId":              page.SId,
+		"enabled":          page.Enabled,
+		"isOnline":         page.IsOnline,
+		"download":         page.Download,
+		"upload":           page.Upload,
+		"total":            page.Total,
+		"used":             page.Used,
+		"remained":         page.Remained,
+		"expire":           page.Expire,
+		"lastOnline":       page.LastOnline,
+		"downloadByte":     page.DownloadByte,
+		"uploadByte":       page.UploadByte,
+		"totalByte":        page.TotalByte,
+		"subUrl":           page.SubUrl,
+		"subJsonUrl":       page.SubJsonUrl,
+		"subClashUrl":      page.SubClashUrl,
+		"subTitle":         page.SubTitle,
+		"subSupportUrl":    page.SubSupportUrl,
+		"subUpdates":       updateHours,
+		"links":            page.Result,
+		"emails":           page.Emails,
+		"datepicker":       datepicker,
+		"announce":         page.SubAnnounce,
+		"connectionLimits": page.Connections,
 	}
 }
 

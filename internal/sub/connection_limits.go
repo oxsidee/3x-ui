@@ -121,3 +121,34 @@ func clampRunes(text string, limit int) string {
 	}
 	return string(runes[:limit-1]) + "…"
 }
+
+type SubPageConnection struct {
+	Remark     string `json:"remark"`
+	TotalByte  int64  `json:"totalByte"`
+	UsedByte   int64  `json:"usedByte"`
+	ExpiryTime int64  `json:"expiryTime"`
+	Expired    bool   `json:"expired"`
+	LimitIP    int    `json:"limitIp"`
+	LimitHwid  int    `json:"limitHwid"`
+}
+
+func (s *SubService) ConnectionLimitsView(subId string) []SubPageConnection {
+	now := time.Now().UnixMilli()
+	out := []SubPageConnection{}
+	for _, c := range s.connectionsFor(subId) {
+		link := c.link()
+		if !link.HasLimits() {
+			continue
+		}
+		out = append(out, SubPageConnection{
+			Remark:     c.Remark,
+			TotalByte:  c.TotalGB,
+			UsedByte:   c.Up + c.Down,
+			ExpiryTime: c.ExpiryTime,
+			Expired:    link.Expired(now),
+			LimitIP:    c.LimitIP,
+			LimitHwid:  c.LimitHwid,
+		})
+	}
+	return out
+}
