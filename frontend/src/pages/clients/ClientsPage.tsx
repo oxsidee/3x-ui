@@ -70,7 +70,7 @@ import type {
   ConnectionLimitInput,
 } from '@/hooks/useClients';
 import type { ConnectionLimit } from '@/schemas/client';
-import ClientTrafficCell from '@/components/clients/ClientTrafficCell';
+import ClientConnectionTraffic from '@/components/clients/ClientConnectionTraffic';
 import ClientSpeedTag, { isActiveSpeed } from '@/components/clients/ClientSpeedTag';
 import ClientCardComment from '@/components/clients/ClientCardComment';
 import AppSidebar from '@/layouts/AppSidebar';
@@ -1203,7 +1203,9 @@ export default function ClientsPage() {
         key: 'traffic',
         width: 300,
         render: (_v, record) => (
-          <ClientTrafficCell
+          <ClientConnectionTraffic
+            connections={record.connectionLimits}
+            inboundsById={inboundsById}
             up={record.traffic?.up}
             down={record.traffic?.down}
             total={record.totalGB}
@@ -1890,8 +1892,10 @@ export default function ClientsPage() {
                                     </div>
                                   </div>
                                   <ClientCardComment comment={row.comment} />
-                                  <ClientTrafficCell
+                                  <ClientConnectionTraffic
                                     compact
+                                    connections={row.connectionLimits}
+                                    inboundsById={inboundsById}
                                     up={row.traffic?.up}
                                     down={row.traffic?.down}
                                     total={row.totalGB}

@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/dbtest"
@@ -251,5 +252,79 @@ func TestConnectionLimits_SetConnectionLimits(t *testing.T) {
 	}
 	if !node.ConfigDirty {
 		t.Fatal("changing a node connection limit must mark the node dirty")
+	}
+}
+
+func TestConnectionLimits_ExpiryAndDelayedStart(t *testing.T) {
+	f := seedConnFixture(t)
+	r := ConnectionLimitResolver{}
+	nodeTag := runtime.NodeSideTag(f.node.Id, f.bs.Tag)
+	db := database.GetDB()
+
+	if err := db.Model(&model.ClientInbound{}).Where("client_id = ? AND inbound_id = ?", f.ivan.Id, f.bs.Id).
+		Update("expiry_time", -10*86400000).Error; err != nil {
+		t.Fatal(err)
+	}
+	ivan := settingsClients(t, r.ProjectInboundSettings(f.node.Id, &f.bs, nodeTag))["Ivan~in-8080-tcp"]
+	if ivan["expiryTime"] != float64(-10*86400000) || ivan["enable"] != true {
+		t.Fatalf("a delayed connection must reach the node as a duration: %v", ivan)
+	}
+
+	activated := time.Now().Add(240 * time.Hour).UnixMilli()
+	snap := &runtime.TrafficSnapshot{Inbounds: []*model.Inbound{{
+		Tag: "in-8080-tcp", Protocol: model.VLESS,
+		ClientStats: []xray.ClientTraffic{{Email: "Ivan~in-8080-tcp", Up: 10, Down: 10, ExpiryTime: activated, Enable: true}},
+	}}}
+	r.TranslateSnapshot(f.node.Id, snap)
+	var link model.ClientInbound
+	if err := db.Where("client_id = ? AND inbound_id = ?", f.ivan.Id, f.bs.Id).First(&link).Error; err != nil {
+		t.Fatal(err)
+	}
+	if link.ExpiryTime != activated {
+		t.Fatalf("the node's activated deadline must be kept, got %d want %d", link.ExpiryTime, activated)
+	}
+
+	if err := db.Model(&model.ClientInbound{}).Where("client_id = ? AND inbound_id = ?", f.ivan.Id, f.bs.Id).
+		Update("expiry_time", time.Now().Add(-time.Minute).UnixMilli()).Error; err != nil {
+		t.Fatal(err)
+	}
+	ivan = settingsClients(t, r.ProjectInboundSettings(f.node.Id, &f.bs, nodeTag))["Ivan~in-8080-tcp"]
+	if ivan["enable"] != false {
+		t.Fatalf("an expired connection must be pushed disabled: %v", ivan)
+	}
+}
+
+func TestConnectionLimits_SetHwidAndExpiry(t *testing.T) {
+	f := seedConnFixture(t)
+	links, err := (&ClientService{}).SetConnectionLimits(f.ivan.Id, []ConnectionLimitInput{{InboundId: f.cascade.Id, LimitHwid: 2, ExpiryTime: -3 * 86400000}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range links {
+		if l.InboundId == f.cascade.Id && (l.LimitHwid != 2 || l.ExpiryTime != -3*86400000) {
+			t.Fatalf("saved = %+v", l)
+		}
+	}
+	if _, err := (&ClientService{}).SetConnectionLimits(f.ivan.Id, []ConnectionLimitInput{{InboundId: f.local.Id, LimitHwid: 1}}); err == nil || !strings.Contains(err.Error(), "only supported on node inbounds") {
+		t.Fatalf("a device limit on a local inbound must be rejected, got %v", err)
+	}
+}
+
+func TestConnectionLimits_PagedListCarriesLimitedConnections(t *testing.T) {
+	f := seedConnFixture(t)
+	resp, err := (&ClientService{}).ListPaged(&InboundService{}, &SettingService{}, ClientPageParams{Page: 1, PageSize: 25})
+	if err != nil {
+		t.Fatal(err)
+	}
+	byEmail := map[string]ClientSlim{}
+	for _, it := range resp.Items {
+		byEmail[it.Email] = it
+	}
+	ivan := byEmail["Ivan"].Connections
+	if len(ivan) != 1 || ivan[0].InboundId != f.bs.Id || ivan[0].TotalGB != 10*gib {
+		t.Fatalf("Ivan connections = %+v, want only the limited one", ivan)
+	}
+	if len(byEmail["Hope"].Connections) != 0 {
+		t.Fatalf("Hope has no limits: %+v", byEmail["Hope"].Connections)
 	}
 }

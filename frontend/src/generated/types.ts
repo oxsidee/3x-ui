@@ -454,8 +454,10 @@ export interface ClientInbound {
   clientId: number;
   createdAt: number;
   down: number;
+  expiryTime: number;
   flowOverride: string;
   inboundId: number;
+  limitHwid: number;
   limitIp: number;
   totalGB: number;
   up: number;
@@ -535,6 +537,7 @@ export interface ClientReverse {
 
 export interface ClientSlim {
   comment?: string;
+  connectionLimits?: ClientInbound[];
   createdAt: number;
   email: string;
   enable: boolean;

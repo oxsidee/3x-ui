@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -16,25 +17,27 @@ import (
 type ConnectionLimitResolver struct{}
 
 type nodeConnection struct {
-	ClientId  int
-	InboundId int
-	Email     string
-	Tag       string
-	Protocol  model.Protocol
-	TotalGB   int64
-	LimitIP   int
-	Up        int64
-	Down      int64
+	ClientId   int
+	InboundId  int
+	Email      string
+	Tag        string
+	Protocol   model.Protocol
+	TotalGB    int64
+	LimitIP    int
+	LimitHwid  int
+	ExpiryTime int64
+	Up         int64
+	Down       int64
 }
 
 func (c nodeConnection) link() model.ClientInbound {
-	return model.ClientInbound{ClientId: c.ClientId, InboundId: c.InboundId, TotalGB: c.TotalGB, LimitIP: c.LimitIP, Up: c.Up, Down: c.Down}
+	return model.ClientInbound{ClientId: c.ClientId, InboundId: c.InboundId, TotalGB: c.TotalGB, LimitIP: c.LimitIP, LimitHwid: c.LimitHwid, ExpiryTime: c.ExpiryTime, Up: c.Up, Down: c.Down}
 }
 
 func loadNodeConnections(nodeID int) ([]nodeConnection, error) {
 	var rows []nodeConnection
 	err := database.GetDB().Table("client_inbounds").
-		Select("client_inbounds.client_id, client_inbounds.inbound_id, clients.email, inbounds.tag, inbounds.protocol, client_inbounds.total_gb, client_inbounds.limit_ip, client_inbounds.up, client_inbounds.down").
+		Select("client_inbounds.client_id, client_inbounds.inbound_id, clients.email, inbounds.tag, inbounds.protocol, client_inbounds.total_gb, client_inbounds.limit_ip, client_inbounds.limit_hwid, client_inbounds.expiry_time, client_inbounds.up, client_inbounds.down").
 		Joins("JOIN clients ON clients.id = client_inbounds.client_id").
 		Joins("JOIN inbounds ON inbounds.id = client_inbounds.inbound_id").
 		Where("inbounds.node_id = ? AND inbounds.protocol IN ?", nodeID, connectionLimitProtocolList()).
@@ -138,7 +141,10 @@ func applyConnectionLimitsToEntry(entry map[string]any, link model.ClientInbound
 	if link.LimitIP > 0 {
 		entry["limitIp"] = link.LimitIP
 	}
-	if link.TrafficExhausted() {
+	if link.ExpiryTime != 0 {
+		entry["expiryTime"] = link.ExpiryTime
+	}
+	if link.TrafficExhausted() || link.Expired(time.Now().UnixMilli()) {
 		entry["enable"] = false
 	}
 }
@@ -166,7 +172,10 @@ func (r ConnectionLimitResolver) ProjectClient(nodeID int, ib *model.Inbound, no
 		if link.LimitIP > 0 {
 			client.LimitIP = link.LimitIP
 		}
-		if link.TrafficExhausted() {
+		if link.ExpiryTime != 0 {
+			client.ExpiryTime = link.ExpiryTime
+		}
+		if link.TrafficExhausted() || link.Expired(time.Now().UnixMilli()) {
 			client.Enable = false
 		}
 	}
@@ -197,6 +206,7 @@ func (r ConnectionLimitResolver) NodeEmails(nodeID int, emails []string) []strin
 
 type connectionUsage struct {
 	up, down int64
+	expiry   int64
 }
 
 func (r ConnectionLimitResolver) TranslateSnapshot(nodeID int, snap *runtime.TrafficSnapshot) {
@@ -232,6 +242,7 @@ func (r ConnectionLimitResolver) TranslateSnapshot(nodeID int, snap *runtime.Tra
 			cur := wireMax[base][tag]
 			cur.up = max(cur.up, cs.Up)
 			cur.down = max(cur.down, cs.Down)
+			cur.expiry = max(cur.expiry, cs.ExpiryTime)
 			wireMax[base][tag] = cur
 		}
 	}
@@ -410,14 +421,24 @@ func recordConnectionUsage(nodeID int, wireMax map[string]map[string]connectionU
 	flipped := false
 	for _, c := range conns {
 		u, ok := wireMax[c.Email][runtime.NodeSideTag(nodeID, c.Tag)]
-		if !ok || (u.up == c.Up && u.down == c.Down) {
+		if !ok {
+			continue
+		}
+		updates := map[string]any{}
+		if u.up != c.Up || u.down != c.Down {
+			updates["up"], updates["down"] = u.up, u.down
+		}
+		if c.ExpiryTime < 0 && u.expiry > 0 {
+			updates["expiry_time"] = u.expiry
+		}
+		if len(updates) == 0 {
 			continue
 		}
 		before := c.link().TrafficExhausted()
 		c.Up, c.Down = u.up, u.down
 		if err := db.Model(&model.ClientInbound{}).
 			Where("client_id = ? AND inbound_id = ?", c.ClientId, c.InboundId).
-			Updates(map[string]any{"up": u.up, "down": u.down}).Error; err != nil {
+			Updates(updates).Error; err != nil {
 			logger.Warning("connection limits: save usage:", err)
 			continue
 		}
@@ -530,9 +551,15 @@ func (r ConnectionLimitResolver) ProjectClientIps(nodeID int, ips []model.Inboun
 }
 
 type ConnectionLimitInput struct {
-	InboundId int   `json:"inboundId"`
-	TotalGB   int64 `json:"totalGB"`
-	LimitIP   int   `json:"limitIp"`
+	InboundId  int   `json:"inboundId"`
+	TotalGB    int64 `json:"totalGB"`
+	LimitIP    int   `json:"limitIp"`
+	LimitHwid  int   `json:"limitHwid"`
+	ExpiryTime int64 `json:"expiryTime"`
+}
+
+func (in ConnectionLimitInput) hasLimits() bool {
+	return in.TotalGB > 0 || in.LimitIP > 0 || in.LimitHwid > 0 || in.ExpiryTime != 0
 }
 
 var connectionLimitProtocols = map[model.Protocol]struct{}{
@@ -564,25 +591,25 @@ func (s *ClientService) SetConnectionLimits(clientId int, inputs []ConnectionLim
 		if !ok {
 			return nil, fmt.Errorf("client is not attached to inbound %d", in.InboundId)
 		}
-		if in.TotalGB < 0 || in.LimitIP < 0 {
+		if in.TotalGB < 0 || in.LimitIP < 0 || in.LimitHwid < 0 {
 			return nil, fmt.Errorf("connection limits must not be negative")
 		}
-		if in.TotalGB == link.TotalGB && in.LimitIP == link.LimitIP {
+		if in.TotalGB == link.TotalGB && in.LimitIP == link.LimitIP && in.LimitHwid == link.LimitHwid && in.ExpiryTime == link.ExpiryTime {
 			continue
 		}
 		var inbound model.Inbound
 		if err := db.Select("id", "node_id", "protocol").First(&inbound, in.InboundId).Error; err != nil {
 			return nil, err
 		}
-		if (in.TotalGB > 0 || in.LimitIP > 0) && inbound.NodeID == nil {
+		if in.hasLimits() && inbound.NodeID == nil {
 			return nil, fmt.Errorf("connection limits are only supported on node inbounds (inbound %d is local)", in.InboundId)
 		}
-		if !supportsConnectionLimits(inbound.Protocol) && (in.TotalGB > 0 || in.LimitIP > 0) {
+		if !supportsConnectionLimits(inbound.Protocol) && in.hasLimits() {
 			return nil, fmt.Errorf("connection limits are not supported for protocol %s", inbound.Protocol)
 		}
 		if err := db.Model(&model.ClientInbound{}).
 			Where("client_id = ? AND inbound_id = ?", clientId, in.InboundId).
-			Updates(map[string]any{"total_gb": in.TotalGB, "limit_ip": in.LimitIP}).Error; err != nil {
+			Updates(map[string]any{"total_gb": in.TotalGB, "limit_ip": in.LimitIP, "limit_hwid": in.LimitHwid, "expiry_time": in.ExpiryTime}).Error; err != nil {
 			return nil, err
 		}
 		if inbound.NodeID != nil {

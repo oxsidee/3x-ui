@@ -1109,6 +1109,8 @@ type ClientInbound struct {
 	FlowOverride string `json:"flowOverride" gorm:"column:flow_override"`
 	TotalGB      int64  `json:"totalGB" gorm:"column:total_gb;default:0"`
 	LimitIP      int    `json:"limitIp" gorm:"column:limit_ip;default:0"`
+	LimitHwid    int    `json:"limitHwid" gorm:"column:limit_hwid;default:0"`
+	ExpiryTime   int64  `json:"expiryTime" gorm:"column:expiry_time;default:0"`
 	Up           int64  `json:"up" gorm:"column:up;default:0"`
 	Down         int64  `json:"down" gorm:"column:down;default:0"`
 	CreatedAt    int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
@@ -1116,6 +1118,14 @@ type ClientInbound struct {
 
 func (ci ClientInbound) TrafficExhausted() bool {
 	return ci.TotalGB > 0 && ci.Up+ci.Down >= ci.TotalGB
+}
+
+func (ci ClientInbound) Expired(nowMs int64) bool {
+	return ci.ExpiryTime > 0 && ci.ExpiryTime <= nowMs
+}
+
+func (ci ClientInbound) HasLimits() bool {
+	return ci.TotalGB > 0 || ci.LimitIP > 0 || ci.LimitHwid > 0 || ci.ExpiryTime != 0
 }
 
 func (ClientInbound) TableName() string { return "client_inbounds" }

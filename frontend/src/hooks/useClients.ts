@@ -48,6 +48,8 @@ export type ConnectionLimitInput = {
   inboundId: number;
   totalGB: number;
   limitIp: number;
+  limitHwid: number;
+  expiryTime: number;
 };
 
 export type { ClientRecord, ClientTraffic, ClientsSummary, InboundOption, ExternalLink };

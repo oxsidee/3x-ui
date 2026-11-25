@@ -51,7 +51,15 @@ function renderEdit(save: SaveFn) {
           inbounds={[NODE_INBOUND, LOCAL_INBOUND]}
           attachedIds={[1, 2]}
           attachedConnectionLimits={[
-            { inboundId: 1, totalGB: 5 * 1024 ** 3, limitIp: 0, up: 1024 ** 3, down: 0 },
+            {
+              inboundId: 1,
+              totalGB: 5 * 1024 ** 3,
+              limitIp: 0,
+              limitHwid: 0,
+              expiryTime: 0,
+              up: 1024 ** 3,
+              down: 0,
+            },
           ]}
           save={save}
           onOpenChange={() => {}}
@@ -79,7 +87,7 @@ describe('ClientFormModal connection limits', () => {
   it('offers limits only for node inbounds and shows their usage', async () => {
     renderEdit(saveMock());
     openLimitsTab();
-    await waitFor(() => expect(limitInputs()).toHaveLength(2));
+    await waitFor(() => expect(limitInputs()).toHaveLength(3));
     const rows = document.querySelectorAll('.client-connection-limit');
     expect(rows).toHaveLength(1);
     expect(rows[0].textContent).toContain('BS');
@@ -91,13 +99,37 @@ describe('ClientFormModal connection limits', () => {
     const save = saveMock();
     renderEdit(save);
     openLimitsTab();
-    await waitFor(() => expect(limitInputs()).toHaveLength(2));
+    await waitFor(() => expect(limitInputs()).toHaveLength(3));
     fireEvent.change(limitInputs()[0], { target: { value: '10' } });
     fireEvent.change(limitInputs()[1], { target: { value: '2' } });
+    fireEvent.change(limitInputs()[2], { target: { value: '3' } });
     fireEvent.click(await screen.findByRole('button', { name: /save/i }));
     await waitFor(() => expect(save).toHaveBeenCalled());
     expect(save.mock.calls[0][1].connectionLimits).toEqual([
-      { inboundId: 1, totalGB: 10 * 1024 ** 3, limitIp: 2 },
+      { inboundId: 1, totalGB: 10 * 1024 ** 3, limitIp: 2, limitHwid: 3, expiryTime: 0 },
+    ]);
+  });
+
+  it('sends a delayed start as a negative duration', async () => {
+    const save = saveMock();
+    renderEdit(save);
+    openLimitsTab();
+    await waitFor(() => expect(limitInputs()).toHaveLength(3));
+    const toggle = document.querySelector('.client-connection-limit .ant-switch');
+    if (!toggle) throw new Error('delayed start switch not found');
+    fireEvent.click(toggle);
+    await waitFor(() => expect(limitInputs()).toHaveLength(4));
+    fireEvent.change(limitInputs()[3], { target: { value: '10' } });
+    fireEvent.click(await screen.findByRole('button', { name: /save/i }));
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    expect(save.mock.calls[0][1].connectionLimits).toEqual([
+      {
+        inboundId: 1,
+        totalGB: 5 * 1024 ** 3,
+        limitIp: 0,
+        limitHwid: 0,
+        expiryTime: -10 * 86400000,
+      },
     ]);
   });
 

@@ -36,6 +36,8 @@ var salamanderWarningSeen sync.Map
 // SubService provides business logic for generating subscription links and managing subscription data.
 type SubService struct {
 	address        string
+	device         string
+	subConnections map[string][]subConnection
 	remarkTemplate string
 	datepicker     string
 	// subscriptionBody is true only when rendering the actual subscription
@@ -109,6 +111,12 @@ func (s *SubService) ForRequest(host string) *SubService {
 	return &req
 }
 
+func (s *SubService) ForDevice(hwid string) *SubService {
+	req := *s
+	req.device = hwid
+	return &req
+}
+
 // PrepareForRequest sets per-request state (host + nodes map) on this
 // SubService instance. HTTP handlers should call ForRequest instead so the
 // controller's shared base service is never mutated by concurrent requests.
@@ -121,6 +129,7 @@ func (s *SubService) PrepareForRequest(host string) {
 		}
 	}
 	s.address = host
+	s.subConnections = nil
 	s.usageShown = map[string]bool{}
 	s.statsByEmail = map[string]xray.ClientTraffic{}
 	s.clientsByInbound = map[int]map[string]model.Client{}
@@ -336,6 +345,9 @@ func (s *SubService) matchingClients(inbound *model.Inbound, subId string) []mod
 			continue
 		}
 		seen[key] = struct{}{}
+		if s.connectionHidden(inbound, client.Email, subId) {
+			continue
+		}
 		out = append(out, client)
 	}
 	if len(out) > 0 && (inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG) {

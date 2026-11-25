@@ -33,15 +33,15 @@ func NewSubClashService(enableRouting bool, clashRules string, clashRemoteDNS bo
 }
 
 func (s *SubClashService) GetClash(subId string, host string) (string, string, error) {
-	return s.getClash(subId, host, false)
+	return s.getClash(subId, host, "", false)
 }
 
 func (s *SubClashService) GetClashLegacy(subId string, host string) (string, string, error) {
-	return s.getClash(subId, host, true)
+	return s.getClash(subId, host, "", true)
 }
 
-func (s *SubClashService) getClash(subId string, host string, legacy bool) (string, string, error) {
-	subReq := s.SubService.ForRequest(host)
+func (s *SubClashService) getClash(subId, host, device string, legacy bool) (string, string, error) {
+	subReq := s.SubService.ForDevice(device).ForRequest(host)
 	subReq.subscriptionBody = true
 	inbounds, err := subReq.getInboundsBySubId(subId)
 	if err != nil {

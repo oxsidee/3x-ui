@@ -479,8 +479,10 @@ export const ClientInboundSchema = z.object({
   clientId: z.number().int(),
   createdAt: z.number().int(),
   down: z.number().int(),
+  expiryTime: z.number().int(),
   flowOverride: z.string(),
   inboundId: z.number().int(),
+  limitHwid: z.number().int(),
   limitIp: z.number().int(),
   totalGB: z.number().int(),
   up: z.number().int(),
@@ -566,6 +568,7 @@ export type ClientReverse = z.infer<typeof ClientReverseSchema>;
 
 export const ClientSlimSchema = z.object({
   comment: z.string().optional(),
+  connectionLimits: z.array(z.lazy(() => ClientInboundSchema)).optional(),
   createdAt: z.number().int(),
   email: z.string(),
   enable: z.boolean(),

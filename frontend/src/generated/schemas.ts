@@ -1897,10 +1897,17 @@ export const SCHEMAS: Record<string, unknown> = {
         "format": "int64",
         "type": "integer"
       },
+      "expiryTime": {
+        "format": "int64",
+        "type": "integer"
+      },
       "flowOverride": {
         "type": "string"
       },
       "inboundId": {
+        "type": "integer"
+      },
+      "limitHwid": {
         "type": "integer"
       },
       "limitIp": {
@@ -1919,8 +1926,10 @@ export const SCHEMAS: Record<string, unknown> = {
       "clientId",
       "createdAt",
       "down",
+      "expiryTime",
       "flowOverride",
       "inboundId",
+      "limitHwid",
       "limitIp",
       "totalGB",
       "up"
@@ -2245,6 +2254,12 @@ export const SCHEMAS: Record<string, unknown> = {
       "comment": {
         "example": "Primary device",
         "type": "string"
+      },
+      "connectionLimits": {
+        "items": {
+          "$ref": "#/components/schemas/ClientInbound"
+        },
+        "type": "array"
       },
       "createdAt": {
         "example": 1735000000000,

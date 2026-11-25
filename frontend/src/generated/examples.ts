@@ -458,8 +458,10 @@ export const EXAMPLES: Record<string, unknown> = {
     "clientId": 0,
     "createdAt": 0,
     "down": 0,
+    "expiryTime": 0,
     "flowOverride": "",
     "inboundId": 0,
+    "limitHwid": 0,
     "limitIp": 0,
     "totalGB": 0,
     "up": 0
@@ -473,6 +475,20 @@ export const EXAMPLES: Record<string, unknown> = {
     "items": [
       {
         "comment": "Primary device",
+        "connectionLimits": [
+          {
+            "clientId": 0,
+            "createdAt": 0,
+            "down": 0,
+            "expiryTime": 0,
+            "flowOverride": "",
+            "inboundId": 0,
+            "limitHwid": 0,
+            "limitIp": 0,
+            "totalGB": 0,
+            "up": 0
+          }
+        ],
         "createdAt": 1735000000000,
         "email": "alice@example.com",
         "enable": true,
@@ -577,6 +593,20 @@ export const EXAMPLES: Record<string, unknown> = {
   },
   "ClientSlim": {
     "comment": "Primary device",
+    "connectionLimits": [
+      {
+        "clientId": 0,
+        "createdAt": 0,
+        "down": 0,
+        "expiryTime": 0,
+        "flowOverride": "",
+        "inboundId": 0,
+        "limitHwid": 0,
+        "limitIp": 0,
+        "totalGB": 0,
+        "up": 0
+      }
+    ],
     "createdAt": 1735000000000,
     "email": "alice@example.com",
     "enable": true,

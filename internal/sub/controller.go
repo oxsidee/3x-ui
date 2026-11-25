@@ -500,7 +500,7 @@ func (a *SUBController) subs(c *gin.Context) {
 	logSubscriptionRoute(userAgent, "raw")
 	subId := c.Param("subid")
 	scheme, host, hostWithPort, _ := a.subService.ResolveRequest(c)
-	subReq := a.subService.ForRequest(host)
+	subReq := a.subService.ForDevice(c.GetHeader("X-HWID")).ForRequest(host)
 	subReq.subscriptionBody = true
 	subs, _, _, traffic, err := subReq.getSubs(subId)
 	if err != nil || subs == nil {
@@ -842,7 +842,7 @@ func (a *SUBController) serveJson(c *gin.Context, alwaysReturnArray bool, conten
 func (a *SUBController) serveJsonBody(c *gin.Context, alwaysReturnArray bool, contentType string, rawDownload bool) bool {
 	subId := c.Param("subid")
 	scheme, host, hostWithPort, _ := a.subService.ResolveRequest(c)
-	jsonSub, header, err := a.subJsonService.GetJson(subId, host, alwaysReturnArray)
+	jsonSub, header, err := a.subJsonService.GetJsonForDevice(subId, host, c.GetHeader("X-HWID"), alwaysReturnArray)
 	if err != nil {
 		writeSubError(c, err)
 		return true
@@ -903,9 +903,9 @@ func (a *SUBController) serveClashBody(c *gin.Context, rawDownload bool, legacy 
 	var clashSub, header string
 	var err error
 	if legacy {
-		clashSub, header, err = a.subClashService.GetClashLegacy(subId, host)
+		clashSub, header, err = a.subClashService.getClash(subId, host, c.GetHeader("X-HWID"), true)
 	} else {
-		clashSub, header, err = a.subClashService.GetClash(subId, host)
+		clashSub, header, err = a.subClashService.getClash(subId, host, c.GetHeader("X-HWID"), false)
 	}
 	if err != nil {
 		if errors.Is(err, errNoLegacyClashProxies) {
@@ -954,7 +954,22 @@ func (a *SUBController) ApplyCommonHeaders(
 	profileRoutingRules string,
 	profileHideSettings bool,
 ) {
-	c.Writer.Header().Set("Subscription-Userinfo", header)
+	var userAgent string
+	if c.Request != nil {
+		userAgent = c.GetHeader("User-Agent")
+	}
+	limitsApp := IsHappClient(userAgent) || IsIncyClient(userAgent)
+	var limitsBanner string
+	if limitsApp {
+		if a.subService != nil {
+			limitsBanner = a.subService.ForDevice("").ConnectionLimitsBanner(c.Param("subid"))
+		}
+		if IsHappClient(userAgent) && limitsBanner != "" {
+			profileAnnounce = strings.TrimSpace(limitsBanner + "\n\n" + profileAnnounce)
+		}
+	} else {
+		c.Writer.Header().Set("Subscription-Userinfo", header)
+	}
 	c.Writer.Header().Set("Profile-Update-Interval", updateInterval)
 
 	// Basics
@@ -1002,4 +1017,7 @@ func (a *SUBController) ApplyCommonHeaders(
 
 	ApplyHappHeaders(c, a.happConfig, happManaged)
 	ApplyIncyHeaders(c, a.incyConfig, a.incyConfig.AutoDetect && incyClient)
+	if incyClient && limitsBanner != "" {
+		c.Writer.Header().Set("Banner-Text", "base64:"+base64.StdEncoding.EncodeToString([]byte(limitsBanner)))
+	}
 }

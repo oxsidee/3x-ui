@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -377,4 +378,23 @@ func clearClientHwidsBySubIDTx(tx *gorm.DB, subIDs ...string) error {
 		}
 	}
 	return nil
+}
+
+func HwidAmongFirstDevices(subID, rawHwid string, devices int) (bool, error) {
+	if devices <= 0 {
+		return true, nil
+	}
+	req := normalizeHwidRequest(HwidRequest{Hwid: rawHwid})
+	if len(req.Hwid) < minHwidLength {
+		return false, nil
+	}
+	var hashes []string
+	if err := database.GetDB().Model(&model.ClientHwid{}).
+		Where("sub_id = ?", strings.TrimSpace(subID)).
+		Order("first_seen asc, id asc").
+		Limit(devices).
+		Pluck("hwid_hash", &hashes).Error; err != nil {
+		return false, err
+	}
+	return slices.Contains(hashes, hashHwid(req.Hwid)), nil
 }

@@ -22,6 +22,16 @@ export const ClientTrafficSchema = z.object({
   resetCount: z.number().optional(),
 });
 
+export const ConnectionLimitSchema = z.object({
+  inboundId: z.number().int(),
+  totalGB: z.number().int().min(0).default(0),
+  limitIp: z.number().int().min(0).default(0),
+  limitHwid: z.number().int().min(0).default(0),
+  expiryTime: z.number().int().default(0),
+  up: z.number().default(0),
+  down: z.number().default(0),
+});
+
 export const ClientRecordSchema = z
   .object({
     id: z.number().optional(),
@@ -50,6 +60,7 @@ export const ClientRecordSchema = z
     trafficResetDay: z.number().optional(),
     inboundIds: nullableNumberArray.optional(),
     traffic: ClientTrafficSchema.nullable().optional(),
+    connectionLimits: z.array(ConnectionLimitSchema).nullish(),
     reverse: z.object({ tag: z.string().optional() }).loose().nullable().optional(),
     privateKey: z.string().optional(),
     publicKey: z.string().optional(),
@@ -210,14 +221,6 @@ export const ExternalLinkListSchema = z
 // two different addresses when one identity holds both a WireGuard and an
 // AmneziaWG attachment at once -- this is what lets the edit form show each
 // protocol's real, distinct address instead of one ambiguous shared field.
-export const ConnectionLimitSchema = z.object({
-  inboundId: z.number().int(),
-  totalGB: z.number().int().min(0).default(0),
-  limitIp: z.number().int().min(0).default(0),
-  up: z.number().default(0),
-  down: z.number().default(0),
-});
-
 export const ClientHydrateSchema = z.object({
   client: ClientRecordSchema,
   inboundIds: nullableNumberArray,

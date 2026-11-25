@@ -1,0 +1,33 @@
+.client-connection-traffic-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.client-connection-traffic-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.client-connection-traffic-name {
+  display: block;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.client-connection-traffic-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.client-connection-traffic-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

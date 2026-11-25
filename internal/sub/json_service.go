@@ -116,7 +116,11 @@ func (s *SubJsonService) bakedTemplate() map[string]any {
 
 // GetJson generates a JSON subscription configuration for the given subscription ID and host.
 func (s *SubJsonService) GetJson(subId string, host string, alwaysReturnArray bool) (string, string, error) {
-	subReq := s.SubService.ForRequest(host)
+	return s.GetJsonForDevice(subId, host, "", alwaysReturnArray)
+}
+
+func (s *SubJsonService) GetJsonForDevice(subId, host, device string, alwaysReturnArray bool) (string, string, error) {
+	subReq := s.SubService.ForDevice(device).ForRequest(host)
 	subReq.subscriptionBody = true
 	inbounds, err := subReq.getInboundsBySubId(subId)
 	if err != nil {
