@@ -1,5 +1,69 @@
 # CLAUDE.md
 
+## Форк IScreation (читать первым)
+
+Это форк `MHSanaei/3x-ui` → `oxsidee/3x-ui` (публичный). Всё ниже про форк
+важнее upstream-разделов, если они расходятся. Схема серверов, адреса, порты и
+каскад описаны в `CLAUDE.local.md` (не в git, только на машине владельца).
+
+### Ветки и обновления
+- Основа — тег `v3.11.0` (эта версия стоит на всех серверах, схема БД совпадает).
+- `iscreation` — рабочая ветка, из неё собирается главный сервер. Каждая
+  доработка — отдельная ветка `feat/...` от `iscreation`, затем merge в `iscreation`.
+- `main` форка не трогаем: это зеркало upstream.
+- Remote `upstream` = `https://github.com/MHSanaei/3x-ui.git`. Обновление
+  версии: `git fetch upstream --tags`, merge нужного тега в `iscreation`,
+  прогон тестов, проверка миграций БД (новые колонки из форка должны сохраниться).
+
+### Доработки форка
+1. **Скрытие участников балансировщика подписки** (`feat/sub-balancer-hide-members`).
+   - Поле `SubBalancer.HideMembers` → колонка `sub_balancers.hide_members`
+     (default false, добавляется AutoMigrate). API-форма `hideMembers`,
+     переключатель «Скрывать участников» в Settings → Sub Balancers.
+   - JSON (`internal/sub/json_service.go`, `appendBalancerEntries`): документы
+     участников удаляются, если документ балансировщика отрендерен.
+   - Clash (`internal/sub/clash_service.go` + `buildClashBalancerGroups`):
+     для каждого включённого балансировщика группа `url-test`
+     (leastPing/leastLoad) или `load-balance` (random/roundRobin) с именем
+     балансировщика; при `hideMembers` участники убираются из селектора `PROXY`.
+     Прокси с именем, совпадающим с группой, переименовывается (`-2`).
+     Принадлежность прокси инбаунду идёт через параллельный срез `owners`.
+   - Raw/base64 (`internal/sub/service.go` + `rawBalancerSkips`): из участников
+     остаётся один инбаунд, случайный среди тех, чья нода `online` и `enable`
+     (локальный инбаунд считается онлайн).
+   - Общие хелперы: `internal/sub/sub_balancer_members.go`.
+     Тесты: `internal/sub/sub_balancer_hide_test.go`,
+     `internal/web/controller/sub_balancer_test.go`,
+     `frontend/src/test/sub-balancer-form-modal.test.tsx`,
+     `frontend/src/test/sub-balancers-tab-toggle.test.tsx`.
+   - Ловушка: переключатель «Включён» в списке шлёт полную строку, поэтому
+     обязан передавать `hideMembers` (иначе сбросит флаг).
+
+### Правила владельца (перекрывают upstream)
+- Никаких комментариев в коде, скриптах и SQL. Upstream-правило «до 2 строк»
+  для форка не действует: новый код пишем без комментариев.
+- Тексты пользователю — по-русски, коротко и нейтрально.
+
+### Локальная сборка и тесты
+- Нужны Go 1.27 (`GOTOOLCHAIN=auto` скачивает его сам) и Node 26.
+- Перед Go-командами `make dist-stub`; фронт: `cd frontend && npm ci`.
+- Быстрые проверки: `go test ./internal/sub/ ./internal/web/controller/`,
+  `cd frontend && npx vitest run --project unit --project components`,
+  `npx tsc --noEmit -p .`, `make gen-check` (после `make gen` и коммита).
+- `TestNextWeeklyRenewal_RepeatedMidnight` падает и на чистом v3.11.0
+  (переход на летнее время в локальной TZ) — к форку не относится.
+- Storybook-проект vitest требует `npx playwright install chromium`.
+
+### Деплой
+- Главная панель: Docker, compose собирает образ из git:
+  `build: context: https://github.com/oxsidee/3x-ui.git#iscreation`,
+  затем `docker compose build 3x-ui && docker compose up -d`.
+- Ноды (RU/NL) работают на обычном upstream 3.11.0: подписки собирает только
+  главная. Ноды пересобирать, только если доработка меняет то, что исполняется
+  на ноде (маршрутизация Xray ноды, синхронизация master↔node).
+
+---
+
 Operational guide for AI agents working in this repo. Long-form human docs:
 `CONTRIBUTING.md` (setup, testing philosophy) and `frontend/README.md`.
 Read those before large changes. This file is the short, must-follow version.
