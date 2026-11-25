@@ -453,8 +453,12 @@ export interface Client {
 export interface ClientInbound {
   clientId: number;
   createdAt: number;
+  down: number;
   flowOverride: string;
   inboundId: number;
+  limitIp: number;
+  totalGB: number;
+  up: number;
 }
 
 export interface ClientPageResponse {

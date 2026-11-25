@@ -1893,18 +1893,37 @@ export const SCHEMAS: Record<string, unknown> = {
         "format": "int64",
         "type": "integer"
       },
+      "down": {
+        "format": "int64",
+        "type": "integer"
+      },
       "flowOverride": {
         "type": "string"
       },
       "inboundId": {
+        "type": "integer"
+      },
+      "limitIp": {
+        "type": "integer"
+      },
+      "totalGB": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "up": {
+        "format": "int64",
         "type": "integer"
       }
     },
     "required": [
       "clientId",
       "createdAt",
+      "down",
       "flowOverride",
-      "inboundId"
+      "inboundId",
+      "limitIp",
+      "totalGB",
+      "up"
     ],
     "type": "object"
   },

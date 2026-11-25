@@ -30,7 +30,7 @@ import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { Controller, FormProvider, useForm, useWatch, useFieldArray } from 'react-hook-form';
 
-import { HttpUtil, IntlUtil, RandomUtil, Wireguard } from '@/utils';
+import { HttpUtil, IntlUtil, RandomUtil, SizeFormatter, Wireguard } from '@/utils';
 import { formatInboundLabel } from '@/lib/inbounds/label';
 import { generateMtprotoSecret } from '@/lib/xray/inbound-defaults';
 import { normalizeClientIps, type ClientIpInfo } from '@/lib/clients/ip-log';
@@ -52,7 +52,9 @@ import type {
   InboundOption,
   ExternalLink,
   ExternalLinkInput,
+  ConnectionLimitInput,
 } from '@/hooks/useClients';
+import type { ConnectionLimit } from '@/schemas/client';
 import { useFail2banStatusQuery, getLimitIpNotice } from '@/api/queries/useFail2banStatusQuery';
 import ClientRenewalFields from './ClientRenewalFields';
 import { ClientFormSchema, ClientCreateFormSchema, type ClientFormValues } from '@/schemas/client';
@@ -102,13 +104,19 @@ interface SaveMetaEdit {
   attach: number[];
   detach: number[];
   externalLinks: ExternalLinkInput[];
+  connectionLimits: ConnectionLimitInput[];
 }
 
 interface SaveMetaCreate {
   isEdit: false;
   email: string;
   externalLinks: ExternalLinkInput[];
+  connectionLimits: ConnectionLimitInput[];
 }
+
+const CONNECTION_LIMIT_PROTOCOLS = new Set(['vless', 'vmess', 'trojan', 'shadowsocks']);
+
+type ConnectionLimitRow = { totalGB: number; limitIp: number };
 
 interface SaveCreatePayload {
   client: Record<string, unknown>;
@@ -121,6 +129,7 @@ interface ClientFormModalProps {
   client: ClientRecord | null;
   inbounds: InboundOption[];
   attachedExternalLinks?: ExternalLink[];
+  attachedConnectionLimits?: ConnectionLimit[];
   attachedIds?: number[];
   tunnelAllowedIPs?: Record<number, string>;
   tgBotEnable?: boolean;
@@ -137,6 +146,7 @@ type Values = ClientFormValues & {
   expiryDate: number;
   limitHwid: number;
   externalLinks: ExternalLinkRow[];
+  connectionLimits: Record<string, ConnectionLimitRow>;
   clientHostRuleIds: number[];
   wgPrivateKey: string;
   wgPublicKey: string;
@@ -177,6 +187,7 @@ const EMPTY: Values = {
   enable: true,
   inboundIds: [],
   externalLinks: [],
+  connectionLimits: {},
   wgPrivateKey: '',
   wgPublicKey: '',
   wgPreSharedKey: '',
@@ -199,6 +210,16 @@ function toExternalLinkRows(links: ExternalLink[] | undefined): ExternalLinkRow[
     lastFetchAt: Number(l.lastFetchAt) || 0,
     lastFetchError: l.lastFetchError || '',
   }));
+}
+
+function toConnectionLimitRows(
+  limits: ConnectionLimit[] | undefined,
+): Record<string, ConnectionLimitRow> {
+  const rows: Record<string, ConnectionLimitRow> = {};
+  for (const l of limits || []) {
+    rows[String(l.inboundId)] = { totalGB: bytesToGB(l.totalGB), limitIp: l.limitIp || 0 };
+  }
+  return rows;
 }
 
 function bytesToGB(bytes: number): number {
@@ -255,6 +276,7 @@ export default function ClientFormModal({
   client,
   inbounds,
   attachedExternalLinks = [],
+  attachedConnectionLimits = [],
   attachedIds = [],
   tunnelAllowedIPs = {},
   tgBotEnable = false,
@@ -396,6 +418,7 @@ export default function ClientFormModal({
         enable: !!client.enable,
         inboundIds: Array.isArray(attachedIds) ? [...attachedIds] : [],
         externalLinks: toExternalLinkRows(attachedExternalLinks),
+        connectionLimits: toConnectionLimitRows(attachedConnectionLimits),
         wgPrivateKey: client.privateKey || '',
         wgPublicKey: client.publicKey || '',
         wgPreSharedKey: client.preSharedKey || '',
@@ -567,6 +590,24 @@ export default function ClientFormModal({
       methods.setValue('secret', generateMtprotoSecret(mtprotoDomain));
     }
   }, [showMtproto, secret, mtprotoDomain, methods]);
+
+  const connectionLimitInbounds = useMemo(() => {
+    const selected = new Set(inboundIds || []);
+    return (inbounds || []).filter(
+      (ib) =>
+        selected.has(ib.id) &&
+        ib.nodeId != null &&
+        CONNECTION_LIMIT_PROTOCOLS.has(ib.protocol || ''),
+    );
+  }, [inbounds, inboundIds]);
+
+  const connectionUsage = useMemo(() => {
+    const usage = new Map<number, number>();
+    for (const l of attachedConnectionLimits || []) {
+      usage.set(l.inboundId, (l.up || 0) + (l.down || 0));
+    }
+    return usage;
+  }, [attachedConnectionLimits]);
 
   const inboundOptions = useMemo(
     () =>
@@ -864,6 +905,19 @@ export default function ClientFormModal({
       }))
       .filter((r) => r.value !== '');
 
+    const originalLimits = toConnectionLimitRows(isEdit ? attachedConnectionLimits : []);
+    const connectionLimits: ConnectionLimitInput[] = connectionLimitInbounds
+      .map((ib) => {
+        const key = String(ib.id);
+        const row = values.connectionLimits?.[key] ?? { totalGB: 0, limitIp: 0 };
+        const before = originalLimits[key] ?? { totalGB: 0, limitIp: 0 };
+        const totalGB = Number(row.totalGB) || 0;
+        const limitIp = Number(row.limitIp) || 0;
+        if (totalGB === before.totalGB && limitIp === before.limitIp) return null;
+        return { inboundId: ib.id, totalGB: gbToBytes(totalGB), limitIp };
+      })
+      .filter((r): r is ConnectionLimitInput => r !== null);
+
     setSubmitting(true);
     try {
       let msg;
@@ -878,11 +932,12 @@ export default function ClientFormModal({
           attach: toAttach,
           detach: toDetach,
           externalLinks,
+          connectionLimits,
         });
       } else {
         msg = await save(
           { client: clientPayload, inboundIds: values.inboundIds },
-          { isEdit: false, email: clientPayload.email as string, externalLinks },
+          { isEdit: false, email: clientPayload.email as string, externalLinks, connectionLimits },
         );
       }
       if (msg?.success) close();
@@ -1533,6 +1588,55 @@ export default function ClientFormModal({
                             <Input allowClear placeholder="0123456789abcdef0123456789abcdef" />
                           </FormField>
                         </>
+                      )}
+                    </>
+                  ),
+                },
+                {
+                  key: 'connectionLimits',
+                  label: t('pages.clients.tabConnectionLimits'),
+                  children: (
+                    <>
+                      <Typography.Paragraph type="secondary" style={{ marginTop: 4 }}>
+                        {t('pages.clients.connectionLimitsHint')}
+                      </Typography.Paragraph>
+                      {connectionLimitInbounds.length === 0 ? (
+                        <Typography.Text type="secondary">
+                          {t('pages.clients.connectionLimitsEmpty')}
+                        </Typography.Text>
+                      ) : (
+                        connectionLimitInbounds.map((ib) => (
+                          <div key={ib.id} className="client-connection-limit">
+                            <Typography.Text strong>
+                              {formatInboundLabel(ib.tag, ib.remark)}
+                            </Typography.Text>
+                            <Row gutter={16}>
+                              <Col xs={24} md={8}>
+                                <FormField
+                                  name={`connectionLimits.${ib.id}.totalGB`}
+                                  label={t('pages.clients.connectionLimitTraffic')}
+                                >
+                                  <InputNumber min={0} step={1} style={{ width: '100%' }} />
+                                </FormField>
+                              </Col>
+                              <Col xs={24} md={8}>
+                                <FormField
+                                  name={`connectionLimits.${ib.id}.limitIp`}
+                                  label={t('pages.clients.connectionLimitIp')}
+                                >
+                                  <InputNumber min={0} step={1} style={{ width: '100%' }} />
+                                </FormField>
+                              </Col>
+                              <Col xs={24} md={8}>
+                                <Form.Item label={t('pages.clients.connectionLimitUsed')}>
+                                  <Typography.Text>
+                                    {SizeFormatter.sizeFormat(connectionUsage.get(ib.id) ?? 0)}
+                                  </Typography.Text>
+                                </Form.Item>
+                              </Col>
+                            </Row>
+                          </div>
+                        ))
                       )}
                     </>
                   ),

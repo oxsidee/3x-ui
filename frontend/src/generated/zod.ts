@@ -478,8 +478,12 @@ export type Client = z.infer<typeof ClientSchema>;
 export const ClientInboundSchema = z.object({
   clientId: z.number().int(),
   createdAt: z.number().int(),
+  down: z.number().int(),
   flowOverride: z.string(),
   inboundId: z.number().int(),
+  limitIp: z.number().int(),
+  totalGB: z.number().int(),
+  up: z.number().int(),
 });
 export type ClientInbound = z.infer<typeof ClientInboundSchema>;
 

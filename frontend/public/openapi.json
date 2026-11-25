@@ -1919,18 +1919,37 @@
             "format": "int64",
             "type": "integer"
           },
+          "down": {
+            "format": "int64",
+            "type": "integer"
+          },
           "flowOverride": {
             "type": "string"
           },
           "inboundId": {
+            "type": "integer"
+          },
+          "limitIp": {
+            "type": "integer"
+          },
+          "totalGB": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "up": {
+            "format": "int64",
             "type": "integer"
           }
         },
         "required": [
           "clientId",
           "createdAt",
+          "down",
           "flowOverride",
-          "inboundId"
+          "inboundId",
+          "limitIp",
+          "totalGB",
+          "up"
         ],
         "type": "object"
       },
@@ -9354,6 +9373,96 @@
                 },
                 "example": {
                   "success": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/clients/{email}/connectionLimits": {
+      "post": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "Set per-connection limits for a client's node inbounds. Each listed inbound gets its own traffic quota and IP limit on top of the client's own limits; 0 means no extra limit. Only node-hosted VLESS, VMess, Trojan and Shadowsocks inbounds the client is attached to are accepted. Usage is counted per connection on the node and reset together with the client's traffic. Returns the client's connection rows with current usage.",
+        "operationId": "post_panel_api_clients_email_connectionLimits",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "path",
+            "required": true,
+            "description": "Client email (unique identifier).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "connectionLimits": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    },
+                    "description": "Rows of { inboundId, totalGB, limitIp }. totalGB is in bytes; 0 removes the quota. limitIp 0 inherits the client limit. Inbounds not listed keep their current values."
+                  }
+                },
+                "required": [
+                  "connectionLimits"
+                ]
+              },
+              "example": {
+                "connectionLimits": [
+                  {
+                    "inboundId": 1,
+                    "totalGB": 10737418240,
+                    "limitIp": 2
+                  },
+                  {
+                    "inboundId": 5,
+                    "totalGB": 0,
+                    "limitIp": 0
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "clientId": 3,
+                      "inboundId": 1,
+                      "totalGB": 10737418240,
+                      "limitIp": 2,
+                      "up": 1048576,
+                      "down": 4194304
+                    }
+                  ]
                 }
               }
             }

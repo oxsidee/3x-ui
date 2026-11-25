@@ -38,6 +38,27 @@
      `frontend/src/test/sub-balancers-tab-toggle.test.tsx`.
    - Ловушка: переключатель «Включён» в списке шлёт полную строку, поэтому
      обязан передавать `hideMembers` (иначе сбросит флаг).
+2. **Лимиты на подключение** (`feat/connection-limits`).
+   - `client_inbounds` получил `total_gb`, `limit_ip` (лимиты пары
+     клиент–инбаунд) и `up`, `down` (трафик этой пары). 0 — без отдельного лимита.
+   - Каждый клиент VLESS/VMess/Trojan/Shadowsocks на инбаунде ноды уходит на ноду
+     под служебным email `<email>~<тег инбаунда на ноде>` с лимитами пары.
+     Ноды остаются на обычном upstream и применяют лимиты штатно (трафик, IP + fail2ban).
+   - Подмена в одной точке: `internal/web/runtime/connection_limits.go`
+     (`ConnectionLimitResolver`, регистрируется в `web.go`) — её вызывают
+     `wireInbound`, AddClient/UpdateUser/DeleteUser/DeleteClient, сбросы трафика,
+     снимок трафика и списки IP в `remote.go`.
+   - Обратный перевод снимка ноды — `service/connection_limits.go`
+     (`TranslateSnapshot`): служебные email превращаются в обычный, трафик всех
+     подключений клиента на ноде складывается в общий счётчик, жизненный цикл
+     (enable/total/expiry) берётся с главной, трафик пары пишется в `client_inbounds`.
+     Исчерпание/восстановление пары помечает ноду dirty → перепуш с enable.
+   - Только инбаунды на нодах: для локальных `SetConnectionLimits` возвращает ошибку.
+   - API: `POST /panel/api/clients/:email/connectionLimits`, лимиты отдаются в
+     `GET /clients/get/:email` (`connectionLimits`). UI — вкладка «Лимиты подключений»
+     в форме клиента.
+   - Лимит IP за CDN работает только при передаче реального IP
+     (`sockopt.trustedXForwardedFor`), иначе fail2ban заблокирует узлы CDN.
 
 ### Правила владельца (перекрывают upstream)
 - Никаких комментариев в коде, скриптах и SQL. Upstream-правило «до 2 строк»

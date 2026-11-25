@@ -1107,7 +1107,15 @@ type ClientInbound struct {
 	ClientId     int    `json:"clientId" gorm:"primaryKey;column:client_id;index"`
 	InboundId    int    `json:"inboundId" gorm:"primaryKey;column:inbound_id;index"`
 	FlowOverride string `json:"flowOverride" gorm:"column:flow_override"`
+	TotalGB      int64  `json:"totalGB" gorm:"column:total_gb;default:0"`
+	LimitIP      int    `json:"limitIp" gorm:"column:limit_ip;default:0"`
+	Up           int64  `json:"up" gorm:"column:up;default:0"`
+	Down         int64  `json:"down" gorm:"column:down;default:0"`
 	CreatedAt    int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
+}
+
+func (ci ClientInbound) TrafficExhausted() bool {
+	return ci.TotalGB > 0 && ci.Up+ci.Down >= ci.TotalGB
 }
 
 func (ClientInbound) TableName() string { return "client_inbounds" }

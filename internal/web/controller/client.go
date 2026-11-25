@@ -68,6 +68,7 @@ func (a *ClientController) initRouter(g *gin.RouterGroup) {
 	g.POST("/:email/attach", a.attach)
 	g.POST("/:email/detach", a.detach)
 	g.POST("/:email/externalLinks", a.setExternalLinks)
+	g.POST("/:email/connectionLimits", a.setConnectionLimits)
 	g.GET("/export", a.export)
 	g.POST("/import", a.importClients)
 	g.POST("/delOrphans", a.delOrphans)
@@ -150,12 +151,17 @@ func (a *ClientController) buildClientPayload(rec *model.ClientRecord) (gin.H, e
 	if err != nil {
 		return nil, err
 	}
+	connectionLimits, err := a.clientService.ConnectionLimits(rec.Id)
+	if err != nil {
+		return nil, err
+	}
 	return gin.H{
 		"client":           rec,
 		"inboundIds":       inboundIds,
 		"externalLinks":    externalLinks,
 		"usedTraffic":      usedTraffic,
 		"tunnelAllowedIPs": tunnelAllowedIPs,
+		"connectionLimits": connectionLimits,
 	}, nil
 }
 
@@ -336,6 +342,30 @@ func (a *ClientController) setExternalLinks(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.inboundClientUpdateSuccess"), nil)
+	notifyClientsChanged()
+}
+
+type connectionLimitsBody struct {
+	ConnectionLimits []service.ConnectionLimitInput `json:"connectionLimits"`
+}
+
+func (a *ClientController) setConnectionLimits(c *gin.Context) {
+	var body connectionLimitsBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	rec, err := a.clientService.GetRecordByEmail(nil, c.Param("email"))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
+		return
+	}
+	links, err := a.clientService.SetConnectionLimits(rec.Id, body.ConnectionLimits)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonObj(c, links, nil)
 	notifyClientsChanged()
 }
 

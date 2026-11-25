@@ -210,11 +210,20 @@ export const ExternalLinkListSchema = z
 // two different addresses when one identity holds both a WireGuard and an
 // AmneziaWG attachment at once -- this is what lets the edit form show each
 // protocol's real, distinct address instead of one ambiguous shared field.
+export const ConnectionLimitSchema = z.object({
+  inboundId: z.number().int(),
+  totalGB: z.number().int().min(0).default(0),
+  limitIp: z.number().int().min(0).default(0),
+  up: z.number().default(0),
+  down: z.number().default(0),
+});
+
 export const ClientHydrateSchema = z.object({
   client: ClientRecordSchema,
   inboundIds: nullableNumberArray,
   externalLinks: ExternalLinkListSchema.optional(),
   tunnelAllowedIPs: z.record(z.number().int(), z.string()).optional(),
+  connectionLimits: z.array(ConnectionLimitSchema).nullish(),
 });
 
 export const BulkAdjustResultSchema = z.object({
@@ -410,6 +419,7 @@ export type ClientRecord = z.infer<typeof ClientRecordSchema>;
 export type ClientTraffic = z.infer<typeof ClientTrafficSchema>;
 export type InboundOption = z.infer<typeof InboundOptionSchema>;
 export type ExternalLink = z.infer<typeof ExternalLinkSchema>;
+export type ConnectionLimit = z.infer<typeof ConnectionLimitSchema>;
 export type ClientsSummary = z.infer<typeof ClientsSummarySchema>;
 export type ClientPageResponse = z.infer<typeof ClientPageResponseSchema>;
 export type ClientHydrate = z.infer<typeof ClientHydrateSchema>;

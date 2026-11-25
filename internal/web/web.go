@@ -561,6 +561,7 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 		RequestReconcile: func() { s.xrayService.SetToNeedReconcile() },
 	})
 	runtime.SetManager(mgr)
+	runtime.SetConnectionLimitResolver(service.ConnectionLimitResolver{})
 	mgr.SetNodeEgressResolver(&s.settingService)
 	// Supply the master client certificate for nodes in mtls mode. Issued lazily
 	// from the node CA on first use; runtime stays free of a service import.

@@ -1358,6 +1358,24 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'POST',
+        path: '/panel/api/clients/:email/connectionLimits',
+        summary:
+          "Set per-connection limits for a client's node inbounds. Each listed inbound gets its own traffic quota and IP limit on top of the client's own limits; 0 means no extra limit. Only node-hosted VLESS, VMess, Trojan and Shadowsocks inbounds the client is attached to are accepted. Usage is counted per connection on the node and reset together with the client's traffic. Returns the client's connection rows with current usage.",
+        params: [
+          { name: 'email', in: 'path', type: 'string', desc: 'Client email (unique identifier).' },
+          {
+            name: 'connectionLimits',
+            in: 'body',
+            type: 'object[]',
+            desc: 'Rows of { inboundId, totalGB, limitIp }. totalGB is in bytes; 0 removes the quota. limitIp 0 inherits the client limit. Inbounds not listed keep their current values.',
+          },
+        ],
+        body: '{\n  "connectionLimits": [\n    { "inboundId": 1, "totalGB": 10737418240, "limitIp": 2 },\n    { "inboundId": 5, "totalGB": 0, "limitIp": 0 }\n  ]\n}',
+        response:
+          '{\n  "success": true,\n  "obj": [\n    { "clientId": 3, "inboundId": 1, "totalGB": 10737418240, "limitIp": 2, "up": 1048576, "down": 4194304 }\n  ]\n}',
+      },
+      {
+        method: 'POST',
         path: '/panel/api/clients/resetAllTraffics',
         summary:
           'Reset the up/down counters for every client globally. Quotas and expiry are not affected. Triggers an Xray restart if any counter actually moved.',

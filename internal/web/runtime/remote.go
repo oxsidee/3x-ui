@@ -636,7 +636,7 @@ func (r *Remote) AddClient(ctx context.Context, ib *model.Inbound, client model.
 		return fmt.Errorf("remote AddClient: resolve tag %q: %w", ib.Tag, err)
 	}
 	payload := map[string]any{
-		"client":     client,
+		"client":     projectedClient(ib, r.node.Id, client),
 		"inboundIds": []int{id},
 	}
 	if _, err := r.do(ctx, http.MethodPost, "panel/api/clients/add", payload); err != nil {
@@ -658,7 +658,7 @@ func (r *Remote) DeleteUser(ctx context.Context, ib *model.Inbound, email string
 	}
 	body := map[string]any{"inboundIds": []int{id}}
 	_, err = r.do(ctx, http.MethodPost,
-		"panel/api/clients/"+url.PathEscape(email)+"/detach", body)
+		"panel/api/clients/"+url.PathEscape(projectedEmail(ib, r.node.Id, email))+"/detach", body)
 	if err == nil {
 		return nil
 	}
@@ -673,6 +673,15 @@ func (r *Remote) DeleteClient(ctx context.Context, email string) error {
 	if email == "" {
 		return nil
 	}
+	for _, nodeEmail := range projectedNodeEmails(r.node.Id, []string{email}) {
+		if err := r.deleteNodeClient(ctx, nodeEmail); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Remote) deleteNodeClient(ctx context.Context, email string) error {
 	_, err := r.do(ctx, http.MethodPost,
 		"panel/api/clients/del/"+url.PathEscape(email), nil)
 	if err == nil {
@@ -693,9 +702,9 @@ func (r *Remote) UpdateUser(ctx context.Context, ib *model.Inbound, oldEmail str
 	if err != nil {
 		return err
 	}
-	path := "panel/api/clients/update/" + url.PathEscape(oldEmail) +
+	path := "panel/api/clients/update/" + url.PathEscape(projectedEmail(ib, r.node.Id, oldEmail)) +
 		"?inboundIds=" + strconv.Itoa(id)
-	if _, err := r.do(ctx, http.MethodPost, path, payload); err != nil {
+	if _, err := r.do(ctx, http.MethodPost, path, projectedClient(ib, r.node.Id, payload)); err != nil {
 		return err
 	}
 	return nil
@@ -760,14 +769,18 @@ func (r *Remote) GetDescendants(ctx context.Context) ([]model.NodeSummary, error
 }
 
 func (r *Remote) ResetClientTraffic(ctx context.Context, _ *model.Inbound, email string) error {
-	_, err := r.do(ctx, http.MethodPost,
-		"panel/api/clients/resetTraffic/"+url.PathEscape(email), nil)
-	return err
+	for _, nodeEmail := range projectedNodeEmails(r.node.Id, []string{email}) {
+		if _, err := r.do(ctx, http.MethodPost,
+			"panel/api/clients/resetTraffic/"+url.PathEscape(nodeEmail), nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ResetClientTraffics zeroes many clients on the node in one request.
 func (r *Remote) ResetClientTraffics(ctx context.Context, emails []string) error {
-	_, err := r.do(ctx, http.MethodPost, "panel/api/clients/bulkResetTraffic", map[string]any{"emails": emails})
+	_, err := r.do(ctx, http.MethodPost, "panel/api/clients/bulkResetTraffic", map[string]any{"emails": projectedNodeEmails(r.node.Id, emails)})
 	return err
 }
 
@@ -862,6 +875,9 @@ func (r *Remote) FetchTrafficSnapshot(ctx context.Context) (*TrafficSnapshot, er
 		_ = json.Unmarshal(envActiveInbounds.Obj, &snap.ActiveInboundTree)
 	}
 
+	if resolver := activeConnectionLimits(); resolver != nil {
+		resolver.TranslateSnapshot(r.node.Id, snap)
+	}
 	return snap, nil
 }
 
@@ -890,7 +906,7 @@ func wireInbound(ib *model.Inbound, remoteNodeID int) url.Values {
 	v.Set("listen", ib.Listen)
 	v.Set("port", strconv.Itoa(ib.Port))
 	v.Set("protocol", string(ib.Protocol))
-	v.Set("settings", ib.Settings)
+	v.Set("settings", projectedSettings(ib, remoteNodeID))
 	v.Set("streamSettings", sanitizeStreamSettingsForRemote(ib.StreamSettings))
 	tag := ib.Tag
 	if remoteNodeID > 0 {
@@ -995,10 +1011,16 @@ func (r *Remote) FetchAllClientIps(ctx context.Context) ([]model.InboundClientIp
 			return nil, fmt.Errorf("decode client ips: %w", err)
 		}
 	}
+	if resolver := activeConnectionLimits(); resolver != nil {
+		ips = resolver.TranslateClientIps(r.node.Id, ips)
+	}
 	return ips, nil
 }
 
 func (r *Remote) PushAllClientIps(ctx context.Context, ips []model.InboundClientIps) error {
+	if resolver := activeConnectionLimits(); resolver != nil {
+		ips = resolver.ProjectClientIps(r.node.Id, ips)
+	}
 	_, err := r.do(ctx, http.MethodPost, "panel/api/server/clientIps", ips)
 	return err
 }
@@ -1017,6 +1039,9 @@ func (r *Remote) FetchClientIpsByGuid(ctx context.Context) (map[string]map[strin
 		if err := json.Unmarshal(env.Obj, &out); err != nil {
 			return nil, fmt.Errorf("decode client ips by guid: %w", err)
 		}
+	}
+	if resolver := activeConnectionLimits(); resolver != nil {
+		resolver.TranslateClientIpsByGuid(r.node.Id, out)
 	}
 	return out, nil
 }

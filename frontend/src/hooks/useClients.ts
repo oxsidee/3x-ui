@@ -44,6 +44,12 @@ export type ExternalLinkInput = {
   namePrefix: string;
 };
 
+export type ConnectionLimitInput = {
+  inboundId: number;
+  totalGB: number;
+  limitIp: number;
+};
+
 export type { ClientRecord, ClientTraffic, ClientsSummary, InboundOption, ExternalLink };
 
 const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } } as const;
@@ -477,6 +483,24 @@ export function useClients(options: UseClientsOptions = {}) {
     },
   });
 
+  const setConnectionLimitsMut = useMutation({
+    mutationFn: ({
+      email,
+      connectionLimits,
+    }: {
+      email: string;
+      connectionLimits: ConnectionLimitInput[];
+    }) =>
+      HttpUtil.post(
+        `/panel/api/clients/${encodeURIComponent(email)}/connectionLimits`,
+        { connectionLimits },
+        { ...JSON_HEADERS, silentSuccess: true },
+      ),
+    onSuccess: (msg) => {
+      if (msg?.success) invalidateAll();
+    },
+  });
+
   const bulkAttachMut = useMutation({
     mutationFn: async (payload: {
       emails: string[];
@@ -648,6 +672,13 @@ export function useClients(options: UseClientsOptions = {}) {
       return setExternalLinksMut.mutateAsync({ email, externalLinks });
     },
     [setExternalLinksMut],
+  );
+  const setConnectionLimits = useCallback(
+    (email: string, connectionLimits: ConnectionLimitInput[]) => {
+      if (!email) return Promise.resolve(null as unknown as Msg<unknown>);
+      return setConnectionLimitsMut.mutateAsync({ email, connectionLimits });
+    },
+    [setConnectionLimitsMut],
   );
   const bulkAttach = useCallback(
     (emails: string[], inboundIds: number[]) => {
@@ -882,6 +913,7 @@ export function useClients(options: UseClientsOptions = {}) {
     bulkRemoveFromGroup,
     attach,
     setExternalLinks,
+    setConnectionLimits,
     bulkAttach,
     detach,
     bulkDetach,

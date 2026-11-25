@@ -457,8 +457,12 @@ export const EXAMPLES: Record<string, unknown> = {
   "ClientInbound": {
     "clientId": 0,
     "createdAt": 0,
+    "down": 0,
     "flowOverride": "",
-    "inboundId": 0
+    "inboundId": 0,
+    "limitIp": 0,
+    "totalGB": 0,
+    "up": 0
   },
   "ClientPageResponse": {
     "filtered": 47,

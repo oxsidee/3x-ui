@@ -67,7 +67,9 @@ import type {
   InboundOption,
   ExternalLink,
   ExternalLinkInput,
+  ConnectionLimitInput,
 } from '@/hooks/useClients';
+import type { ConnectionLimit } from '@/schemas/client';
 import ClientTrafficCell from '@/components/clients/ClientTrafficCell';
 import ClientSpeedTag, { isActiveSpeed } from '@/components/clients/ClientSpeedTag';
 import ClientCardComment from '@/components/clients/ClientCardComment';
@@ -357,6 +359,7 @@ export default function ClientsPage() {
     bulkRemoveFromGroup,
     attach,
     setExternalLinks,
+    setConnectionLimits,
     bulkAttach,
     detach,
     bulkDetach,
@@ -398,6 +401,7 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState<ClientRecord | null>(null);
   const [editingAttachedIds, setEditingAttachedIds] = useState<number[]>([]);
   const [editingExternalLinks, setEditingExternalLinks] = useState<ExternalLink[]>([]);
+  const [editingConnectionLimits, setEditingConnectionLimits] = useState<ConnectionLimit[]>([]);
   const [editingTunnelAllowedIPs, setEditingTunnelAllowedIPs] = useState<Record<number, string>>(
     {},
   );
@@ -688,6 +692,7 @@ export default function ClientsPage() {
     setEditingClient(null);
     setEditingAttachedIds([]);
     setEditingExternalLinks([]);
+    setEditingConnectionLimits([]);
     setEditingTunnelAllowedIPs({});
     setFormOpen(true);
   }
@@ -705,6 +710,9 @@ export default function ClientsPage() {
       const ids = full?.inboundIds ?? (Array.isArray(row.inboundIds) ? row.inboundIds : []);
       setEditingAttachedIds([...ids]);
       setEditingExternalLinks(Array.isArray(full?.externalLinks) ? [...full.externalLinks] : []);
+      setEditingConnectionLimits(
+        Array.isArray(full?.connectionLimits) ? [...full.connectionLimits] : [],
+      );
       setEditingTunnelAllowedIPs(full?.tunnelAllowedIPs ?? {});
       setFormOpen(true);
     },
@@ -1004,13 +1012,19 @@ export default function ClientsPage() {
     async (
       payload: Record<string, unknown> | { client: Record<string, unknown>; inboundIds: number[] },
       meta:
-        | { isEdit: false; email: string; externalLinks: ExternalLinkInput[] }
+        | {
+            isEdit: false;
+            email: string;
+            externalLinks: ExternalLinkInput[];
+            connectionLimits: ConnectionLimitInput[];
+          }
         | {
             isEdit: true;
             email: string;
             attach: number[];
             detach: number[];
             externalLinks: ExternalLinkInput[];
+            connectionLimits: ConnectionLimitInput[];
           },
     ) => {
       if (!meta.isEdit) {
@@ -1018,6 +1032,10 @@ export default function ClientsPage() {
         if (!createMsg?.success) return createMsg;
         if (meta.email && meta.externalLinks.length > 0) {
           const r = await setExternalLinks(meta.email, meta.externalLinks);
+          if (!r?.success) return r;
+        }
+        if (meta.email && meta.connectionLimits.length > 0) {
+          const r = await setConnectionLimits(meta.email, meta.connectionLimits);
           if (!r?.success) return r;
         }
         return createMsg;
@@ -1038,9 +1056,13 @@ export default function ClientsPage() {
       // Always replace the client's external links (an empty set clears them).
       const r = await setExternalLinks(emailKey, meta.externalLinks);
       if (!r?.success) return r;
+      if (meta.connectionLimits.length > 0) {
+        const limitsMsg = await setConnectionLimits(emailKey, meta.connectionLimits);
+        if (!limitsMsg?.success) return limitsMsg;
+      }
       return updateMsg;
     },
-    [create, update, attach, detach, setExternalLinks],
+    [create, update, attach, detach, setExternalLinks, setConnectionLimits],
   );
 
   const pageClass = useMemo(() => {
@@ -1906,6 +1928,7 @@ export default function ClientsPage() {
             client={editingClient}
             attachedIds={editingAttachedIds}
             attachedExternalLinks={editingExternalLinks}
+            attachedConnectionLimits={editingConnectionLimits}
             tunnelAllowedIPs={editingTunnelAllowedIPs}
             inbounds={inbounds}
             tgBotEnable={tgBotEnable}
