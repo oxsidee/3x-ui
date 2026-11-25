@@ -1189,6 +1189,7 @@ export const EXAMPLES: Record<string, unknown> = {
   "SubBalancer": {
     "createdAt": 1710000000000,
     "enabled": true,
+    "hideMembers": false,
     "id": 1,
     "inboundIds": [
       1,

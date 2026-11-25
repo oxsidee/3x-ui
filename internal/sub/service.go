@@ -501,12 +501,14 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 	}
 
 	seenEmails := make(map[string]struct{})
+	balancerSkips := s.rawBalancerSkips(inbounds, subId)
 	for _, inbound := range inbounds {
 		clients := s.matchingClients(inbound, subId)
 		if len(clients) == 0 {
 			continue
 		}
-		if inbound.ExcludeFromSub {
+		_, skippedMember := balancerSkips[inbound.Id]
+		if inbound.ExcludeFromSub || skippedMember {
 			if countHiddenClients(clients, seenEmails) {
 				hasEnabledClient = true
 			}

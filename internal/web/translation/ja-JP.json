@@ -1591,6 +1591,8 @@
         "inboundsCount": "{count} インバウンド",
         "weights": "メンバーの重み",
         "weightsHelp": "LeastLoad のみ：値が小さいほど選ばれやすくなります。未指定のメンバーは重み 1 です。",
+        "hideMembers": "メンバーを隠す",
+        "hideMembersHelp": "サブスクリプションにはバランサーのみが表示されます。メンバーは JSON 一覧から外れ、Clash ではグループになり、通常リンクにはオンラインのメンバーが 1 つだけ残ります。",
         "enabled": "有効",
         "empty": "バランサーはまだありません",
         "deleteConfirm": "このバランサーを削除しますか？",

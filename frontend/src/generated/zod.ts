@@ -1146,6 +1146,7 @@ export type SponsorList = z.infer<typeof SponsorListSchema>;
 export const SubBalancerSchema = z.object({
   createdAt: z.number().int(),
   enabled: z.boolean(),
+  hideMembers: z.boolean(),
   id: z.number().int(),
   inboundIds: z.array(z.number().int()),
   memberWeights: z.record(z.number().int(), z.number()).optional(),

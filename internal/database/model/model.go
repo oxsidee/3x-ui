@@ -1477,9 +1477,10 @@ type SubBalancer struct {
 	SortOrder     int             `json:"sortOrder" form:"sortOrder" gorm:"column:sort_order" validate:"omitempty,gte=1" example:"1"`
 	// No gorm default:true — a bool default makes an explicit false at insert
 	// collapse back to the column default (zero value is skipped).
-	Enabled   bool  `json:"enabled" form:"enabled" example:"true"`
-	CreatedAt int64 `json:"createdAt" gorm:"autoCreateTime:milli" example:"1710000000000"`
-	UpdatedAt int64 `json:"updatedAt" gorm:"autoUpdateTime:milli" example:"1710000000000"`
+	Enabled     bool  `json:"enabled" form:"enabled" example:"true"`
+	HideMembers bool  `json:"hideMembers" form:"hideMembers" gorm:"column:hide_members;default:false" example:"false"`
+	CreatedAt   int64 `json:"createdAt" gorm:"autoCreateTime:milli" example:"1710000000000"`
+	UpdatedAt   int64 `json:"updatedAt" gorm:"autoUpdateTime:milli" example:"1710000000000"`
 }
 
 func MergeClientRecord(existing *ClientRecord, incoming *ClientRecord) []ClientMergeConflict {

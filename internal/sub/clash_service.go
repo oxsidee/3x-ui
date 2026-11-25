@@ -56,7 +56,8 @@ func (s *SubClashService) getClash(subId string, host string, legacy bool) (stri
 	}
 
 	var proxies []map[string]any
-	var ordered []orderedSubEntry[func() []map[string]any]
+	var owners []int
+	var ordered []orderedSubEntry[func() ownedProxies]
 	var hasInactiveExternal bool
 	var hasBoundClosed bool
 	var hasEnabledClient bool
@@ -90,8 +91,10 @@ func (s *SubClashService) getClash(subId string, host string, legacy bool) (stri
 				variants, closed := subReq.clientHostVariants(inbound, client, "clash")
 				hasBoundClosed = hasBoundClosed || closed
 				for _, variant := range variants {
-					render := func() []map[string]any { return s.getProxies(subReq, variant.inbound(subReq, inbound), client, host) }
-					ordered = append(ordered, orderedSubEntry[func() []map[string]any]{variant.order, render})
+					render := func() ownedProxies {
+						return ownedProxies{inbound.Id, s.getProxies(subReq, variant.inbound(subReq, inbound), client, host)}
+					}
+					ordered = append(ordered, orderedSubEntry[func() ownedProxies]{variant.order, render})
 				}
 				continue
 			}
@@ -106,12 +109,16 @@ func (s *SubClashService) getClash(subId string, host string, legacy bool) (stri
 				injectExternalProxy(&clone, effectiveEps)
 				effective = &clone
 			}
-			proxies = append(proxies, s.getProxies(subReq, effective, client, host)...)
+			rendered := s.getProxies(subReq, effective, client, host)
+			proxies = append(proxies, rendered...)
+			owners = appendOwners(owners, inbound.Id, len(rendered))
 		}
 	}
 	if subReq.hostsFirst {
 		for _, render := range orderedSubValues(ordered) {
-			proxies = append(proxies, render()...)
+			owned := render()
+			proxies = append(proxies, owned.proxies...)
+			owners = appendOwners(owners, owned.inboundId, len(owned.proxies))
 		}
 	}
 	for _, ext := range externalLinks {
@@ -132,6 +139,7 @@ func (s *SubClashService) getClash(subId string, host string, legacy bool) (stri
 			}
 			if proxy := s.clashProxyFromExternal(el.Link, name); proxy != nil {
 				proxies = append(proxies, proxy)
+				owners = append(owners, 0)
 			}
 		}
 	}
@@ -140,7 +148,7 @@ func (s *SubClashService) getClash(subId string, host string, legacy bool) (stri
 		return "", "", nil
 	}
 	if legacy {
-		proxies = legacyClashProxies(proxies)
+		proxies, owners = legacyClashProxies(proxies, owners)
 		if len(proxies) == 0 {
 			return "", "", errNoLegacyClashProxies
 		}
@@ -164,8 +172,10 @@ func (s *SubClashService) getClash(subId string, host string, legacy bool) (stri
 		}
 		if mode == infoNodeExpired || mode == infoNodeDepleted {
 			proxies = []map[string]any{dummyProxy}
+			owners = []int{0}
 		} else {
 			proxies = append([]map[string]any{dummyProxy}, proxies...)
+			owners = append([]int{0}, owners...)
 		}
 	}
 
@@ -174,26 +184,17 @@ func (s *SubClashService) getClash(subId string, host string, legacy bool) (stri
 	}
 
 	ensureUniqueProxyNames(proxies)
+	balancerGroups := buildClashBalancerGroups(proxies, owners)
 
-	proxyNames := make([]string, 0, len(proxies)+1)
-	for _, proxy := range proxies {
-		if isDummyProxy(proxy) && len(proxies) > 1 {
-			continue
-		}
-		if name, ok := proxy["name"].(string); ok && name != "" {
-			proxyNames = append(proxyNames, name)
-		}
-	}
-	proxyNames = append(proxyNames, "DIRECT")
-
+	proxyGroups := []map[string]any{{
+		"name":    "PROXY",
+		"type":    "select",
+		"proxies": balancerGroups.selectorNames(proxies),
+	}}
 	config := map[string]any{
-		"proxies": proxies,
-		"proxy-groups": []map[string]any{{
-			"name":    "PROXY",
-			"type":    "select",
-			"proxies": proxyNames,
-		}},
-		"rules": []string{"MATCH,PROXY"},
+		"proxies":      proxies,
+		"proxy-groups": append(proxyGroups, balancerGroups.groups...),
+		"rules":        []string{"MATCH,PROXY"},
 	}
 
 	// Custom Clash routing can inject Mihomo-only groups, rules, providers or a
@@ -219,14 +220,23 @@ func (s *SubClashService) getClash(subId string, host string, legacy bool) (stri
 	return string(finalYAML), header, nil
 }
 
-func legacyClashProxies(proxies []map[string]any) []map[string]any {
+func legacyClashProxies(proxies []map[string]any, owners []int) ([]map[string]any, []int) {
 	compatible := make([]map[string]any, 0, len(proxies))
-	for _, proxy := range proxies {
+	compatibleOwners := make([]int, 0, len(owners))
+	for i, proxy := range proxies {
 		if filtered := legacyClashProxy(proxy); filtered != nil {
 			compatible = append(compatible, filtered)
+			compatibleOwners = append(compatibleOwners, owners[i])
 		}
 	}
-	return compatible
+	return compatible, compatibleOwners
+}
+
+func appendOwners(owners []int, inboundId, count int) []int {
+	for range count {
+		owners = append(owners, inboundId)
+	}
+	return owners
 }
 
 func legacyClashProxy(proxy map[string]any) map[string]any {

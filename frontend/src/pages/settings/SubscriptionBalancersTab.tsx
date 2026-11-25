@@ -94,6 +94,7 @@ export default function SubscriptionBalancersTab({
       memberWeights: balancer.memberWeights ?? undefined,
       sortOrder: balancer.sortOrder,
       enabled: !balancer.enabled,
+      hideMembers: balancer.hideMembers ?? false,
     });
   }
 

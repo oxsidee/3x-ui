@@ -115,6 +115,7 @@ func (s *SubBalancerService) Update(id int, balancer *model.SubBalancer, enabled
 	current.InboundIds = balancer.InboundIds
 	current.MemberWeights = balancer.MemberWeights
 	current.SortOrder = balancer.SortOrder
+	current.HideMembers = balancer.HideMembers
 	if enabled != nil {
 		current.Enabled = *enabled
 	}

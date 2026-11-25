@@ -1591,6 +1591,8 @@
         "inboundsCount": "{count} 入站",
         "weights": "成员权重",
         "weightsHelp": "仅适用于 LeastLoad：权重越小越常被选中；未设置的成员权重为 1。",
+        "hideMembers": "隐藏成员",
+        "hideMembersHelp": "订阅中只显示负载均衡器：成员从 JSON 列表中移除，在 Clash 中合并为一个分组，普通链接只保留一个在线成员。",
         "enabled": "启用",
         "empty": "暂无均衡器",
         "deleteConfirm": "确定删除此均衡器？",

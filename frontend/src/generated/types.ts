@@ -1077,6 +1077,7 @@ export interface SponsorList {
 export interface SubBalancer {
   createdAt: number;
   enabled: boolean;
+  hideMembers: boolean;
   id: number;
   inboundIds: number[];
   memberWeights?: Record<number, number>;

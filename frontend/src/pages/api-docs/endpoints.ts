@@ -183,6 +183,14 @@ const subBalancerBodyParams: EndpointParam[] = [
     desc: 'Whether the balancer is emitted. Default true on create; unchanged when omitted on update.',
     optional: true,
   },
+  {
+    name: 'hideMembers',
+    in: 'body (form)',
+    type: 'boolean',
+    desc: 'Show only the balancer in subscriptions: member configs leave the JSON list, Clash lists the url-test/load-balance group instead of its members, and raw links keep one member inbound (an online node first). Default false.',
+    optional: true,
+    defaultValue: false,
+  },
 ];
 
 const subscriptionHeadResponses = {

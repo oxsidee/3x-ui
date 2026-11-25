@@ -1712,6 +1712,8 @@
         "inboundsCount": "Počet vstupov: {count}",
         "weights": "Váhy členov",
         "weightsHelp": "Iba pre LeastLoad: nižšia váha znamená častejší výber. Bez zadanej hodnoty má člen váhu 1.",
+        "hideMembers": "Skryť členov",
+        "hideMembersHelp": "Odbery zobrazujú iba vyvažovač: členovia zmiznú zo zoznamu JSON, v Clash sa zlúčia do skupiny a v bežných odkazoch zostane jeden online člen.",
         "enabled": "Zapnuté",
         "empty": "Zatiaľ nie je pridané žiadne vyvažovanie",
         "deleteConfirm": "Odstrániť toto vyvažovanie?",

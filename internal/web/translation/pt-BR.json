@@ -1591,6 +1591,8 @@
         "inboundsCount": "{count} Inbounds",
         "weights": "Pesos dos membros",
         "weightsHelp": "Apenas para LeastLoad: peso menor é escolhido com mais frequência; membros sem valor têm peso 1.",
+        "hideMembers": "Ocultar membros",
+        "hideMembersHelp": "As assinaturas mostram apenas o balanceador: os membros saem da lista JSON, viram um grupo no Clash e os links simples mantêm um membro online.",
         "enabled": "Ativado",
         "empty": "Ainda não há balanceadores",
         "deleteConfirm": "Excluir este balanceador?",

@@ -1712,6 +1712,8 @@
         "inboundsCount": "{count} Inbounds",
         "weights": "Member weights",
         "weightsHelp": "Only for LeastLoad: a lower weight is picked more often; members without a value weigh 1.",
+        "hideMembers": "Hide members",
+        "hideMembersHelp": "Subscriptions show only the balancer: members leave the JSON list, become a Clash group, and plain links keep one online member.",
         "enabled": "Enabled",
         "empty": "No balancers yet",
         "deleteConfirm": "Delete this balancer?",

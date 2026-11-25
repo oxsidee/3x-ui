@@ -439,11 +439,13 @@ func (s *SubJsonService) appendBalancerEntries(entries []subConfigEntry) []subCo
 			}
 		}
 	}
+	rendered := make(map[int]bool, len(balancers))
 	for i := range balancers {
 		config := s.buildBalancerConfig(&balancers[i], entries, entryProxies)
 		if config == nil {
 			continue
 		}
+		rendered[balancers[i].Id] = true
 		entries = append(entries, subConfigEntry{
 			sortIndex: balancers[i].SortOrder,
 			kind:      1,
@@ -451,7 +453,14 @@ func (s *SubJsonService) appendBalancerEntries(entries []subConfigEntry) []subCo
 			configs:   []json_util.RawMessage{config},
 		})
 	}
-	return entries
+	hidden := hiddenBalancerMembers(balancers, rendered)
+	if len(hidden) == 0 {
+		return entries
+	}
+	return slices.DeleteFunc(entries, func(entry subConfigEntry) bool {
+		_, member := hidden[entry.id]
+		return entry.kind == 0 && member
+	})
 }
 
 // extractProxyOutbound returns the first outbound of a document when it is the

@@ -100,3 +100,32 @@ func TestSubBalancerController_UpdatePreservesEnabledWhenAbsent(t *testing.T) {
 		t.Fatalf("enabled=true -> %v, want true", bal["enabled"])
 	}
 }
+
+func TestSubBalancerController_HideMembersRoundTrip(t *testing.T) {
+	router := setupSubBalancerRouter(t)
+	base := "remark=auto&strategy=leastPing&sortOrder=1&inboundIds=1"
+
+	resp := subBalancerPost(t, router, "/panel/api/sub-balancers", base+"&hideMembers=true")
+	bal := responseObj(t, resp.Body.String())["obj"].(map[string]any)
+	if bal["hideMembers"] != true {
+		t.Fatalf("create hideMembers=true -> %v: %s", bal["hideMembers"], resp.Body.String())
+	}
+	id := strconv.Itoa(int(bal["id"].(float64)))
+
+	resp = subBalancerPost(t, router, "/panel/api/sub-balancers/"+id, base+"&hideMembers=true&enabled=true")
+	bal = responseObj(t, resp.Body.String())["obj"].(map[string]any)
+	if bal["hideMembers"] != true {
+		t.Fatalf("update hideMembers=true -> %v", bal["hideMembers"])
+	}
+
+	resp = subBalancerPost(t, router, "/panel/api/sub-balancers/"+id, base+"&hideMembers=false")
+	bal = responseObj(t, resp.Body.String())["obj"].(map[string]any)
+	if bal["hideMembers"] != false {
+		t.Fatalf("update hideMembers=false -> %v", bal["hideMembers"])
+	}
+
+	resp = subBalancerPost(t, router, "/panel/api/sub-balancers", base+"&hideMembers=bogus")
+	if strings.Contains(resp.Body.String(), `"success":true`) {
+		t.Fatalf("hideMembers=bogus should be rejected: %s", resp.Body.String())
+	}
+}

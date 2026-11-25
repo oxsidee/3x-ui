@@ -1591,6 +1591,8 @@
         "inboundsCount": "{count} Inbound",
         "weights": "Trọng số thành viên",
         "weightsHelp": "Chỉ dành cho LeastLoad: trọng số nhỏ hơn được chọn thường xuyên hơn; thành viên không có giá trị mang trọng số 1.",
+        "hideMembers": "Ẩn thành viên",
+        "hideMembersHelp": "Gói đăng ký chỉ hiển thị bộ cân bằng: thành viên bị loại khỏi danh sách JSON, thành nhóm trong Clash và liên kết thường chỉ giữ một thành viên đang trực tuyến.",
         "enabled": "Đã bật",
         "empty": "Chưa có bộ cân bằng nào",
         "deleteConfirm": "Xóa bộ cân bằng này?",

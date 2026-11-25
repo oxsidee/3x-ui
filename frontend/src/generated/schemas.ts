@@ -4734,6 +4734,10 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": true,
         "type": "boolean"
       },
+      "hideMembers": {
+        "example": false,
+        "type": "boolean"
+      },
       "id": {
         "example": 1,
         "type": "integer"
@@ -4784,6 +4788,7 @@ export const SCHEMAS: Record<string, unknown> = {
     "required": [
       "createdAt",
       "enabled",
+      "hideMembers",
       "id",
       "inboundIds",
       "remark",

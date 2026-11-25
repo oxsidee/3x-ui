@@ -42,6 +42,7 @@ function initialState(balancer: SubBalancer | null): SubBalancerFormValues {
     memberWeights: balancer?.memberWeights ? { ...balancer.memberWeights } : undefined,
     sortOrder: balancer?.sortOrder ?? 1,
     enabled: balancer?.enabled ?? true,
+    hideMembers: balancer?.hideMembers ?? false,
   };
 }
 
@@ -236,6 +237,15 @@ export default function SubBalancerFormModal({
               </span>
             </Form.Item>
           )}
+
+          <FormField
+            label={t('pages.settings.subBalancers.hideMembers')}
+            name="hideMembers"
+            valueProp="checked"
+            tooltip={t('pages.settings.subBalancers.hideMembersHelp')}
+          >
+            <Switch />
+          </FormField>
 
           <FormField
             label={t('pages.settings.subBalancers.enabled')}

@@ -1591,6 +1591,8 @@
         "inboundsCount": "{count} Inbound",
         "weights": "Bobot anggota",
         "weightsHelp": "Hanya untuk LeastLoad: bobot lebih rendah lebih sering dipilih; anggota tanpa nilai berbobot 1.",
+        "hideMembers": "Sembunyikan anggota",
+        "hideMembersHelp": "Langganan hanya menampilkan penyeimbang: anggota keluar dari daftar JSON, menjadi grup di Clash, dan tautan biasa menyisakan satu anggota yang online.",
         "enabled": "Aktif",
         "empty": "Belum ada penyeimbang",
         "deleteConfirm": "Hapus penyeimbang ini?",

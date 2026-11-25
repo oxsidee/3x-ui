@@ -4760,6 +4760,10 @@
             "example": true,
             "type": "boolean"
           },
+          "hideMembers": {
+            "example": false,
+            "type": "boolean"
+          },
           "id": {
             "example": 1,
             "type": "integer"
@@ -4810,6 +4814,7 @@
         "required": [
           "createdAt",
           "enabled",
+          "hideMembers",
           "id",
           "inboundIds",
           "remark",
@@ -15436,6 +15441,7 @@
                     {
                       "createdAt": 1710000000000,
                       "enabled": true,
+                      "hideMembers": false,
                       "id": 1,
                       "inboundIds": [
                         1,
@@ -15495,6 +15501,11 @@
                   "enabled": {
                     "type": "boolean",
                     "description": "Whether the balancer is emitted. Default true on create; unchanged when omitted on update."
+                  },
+                  "hideMembers": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show only the balancer in subscriptions: member configs leave the JSON list, Clash lists the url-test/load-balance group instead of its members, and raw links keep one member inbound (an online node first). Default false."
                   }
                 },
                 "required": [
@@ -15538,6 +15549,7 @@
                   "obj": {
                     "createdAt": 1710000000000,
                     "enabled": true,
+                    "hideMembers": false,
                     "id": 1,
                     "inboundIds": [
                       1,
@@ -15609,6 +15621,11 @@
                   "enabled": {
                     "type": "boolean",
                     "description": "Whether the balancer is emitted. Default true on create; unchanged when omitted on update."
+                  },
+                  "hideMembers": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show only the balancer in subscriptions: member configs leave the JSON list, Clash lists the url-test/load-balance group instead of its members, and raw links keep one member inbound (an online node first). Default false."
                   }
                 },
                 "required": [
@@ -15652,6 +15669,7 @@
                   "obj": {
                     "createdAt": 1710000000000,
                     "enabled": true,
+                    "hideMembers": false,
                     "id": 1,
                     "inboundIds": [
                       1,
@@ -15710,6 +15728,7 @@
                   "obj": {
                     "createdAt": 1710000000000,
                     "enabled": true,
+                    "hideMembers": false,
                     "id": 1,
                     "inboundIds": [
                       1,
@@ -15770,6 +15789,7 @@
                   "obj": {
                     "createdAt": 1710000000000,
                     "enabled": true,
+                    "hideMembers": false,
                     "id": 1,
                     "inboundIds": [
                       1,

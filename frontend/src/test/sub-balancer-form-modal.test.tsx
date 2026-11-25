@@ -78,6 +78,15 @@ function selectStrategy(label: string) {
   fireEvent.keyDown(single, { key: 'Escape' });
 }
 
+function hideMembersSwitch(): HTMLElement {
+  const item = Array.from(document.querySelectorAll('.ant-form-item')).find((el) =>
+    (el.querySelector('label')?.textContent ?? '').includes('Hide members'),
+  );
+  const toggle = item?.querySelector('.ant-switch');
+  if (!toggle) throw new Error('Hide members switch not found');
+  return toggle as HTMLElement;
+}
+
 function weightInputs(): HTMLInputElement[] {
   return Array.from(
     document.querySelectorAll<HTMLInputElement>('.sub-balancer-weights .ant-input-number-input'),
@@ -111,6 +120,7 @@ describe('SubBalancerFormModal', () => {
       inboundIds: [1],
       sortOrder: 1,
       enabled: true,
+      hideMembers: false,
     });
   });
 
@@ -132,6 +142,7 @@ describe('SubBalancerFormModal', () => {
       inboundIds: [2],
       sortOrder: 3,
       enabled: false,
+      hideMembers: false,
     });
   });
 
@@ -189,6 +200,7 @@ describe('SubBalancerFormModal', () => {
       inboundIds: [1],
       sortOrder: 1,
       enabled: true,
+      hideMembers: false,
     });
   });
 
@@ -204,5 +216,31 @@ describe('SubBalancerFormModal', () => {
     });
     await waitFor(() => expect(weightInputs()).toHaveLength(1));
     expect(weightInputs()[0].value).toBe('1.5');
+  });
+
+  it('sends hideMembers when the switch is turned on', async () => {
+    const { onConfirm } = renderModal(null);
+    fireEvent.change(remarkInput(), { target: { value: 'hidden' } });
+    selectInbound('First');
+    fireEvent.click(hideMembersSwitch());
+    fireEvent.click(primaryButton());
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ hideMembers: true }));
+  });
+
+  it('seeds hideMembers from the edited balancer', async () => {
+    const { onConfirm } = renderModal({
+      id: 10,
+      remark: 'existing',
+      strategy: 'leastPing',
+      inboundIds: [1],
+      sortOrder: 1,
+      enabled: true,
+      hideMembers: true,
+    });
+    expect(hideMembersSwitch().getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(primaryButton());
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ hideMembers: true }));
   });
 });
